@@ -4,10 +4,24 @@ import type {
   PokemonSearchResult,
   SearchMatchQuality,
 } from '../types/pokemon';
+import {
+  createGermanNameSearchIndex,
+  normalizeQuery,
+  normalizeToleranceText,
+  type BaseSpeciesIndexItem,
+  type GermanPokemonIndexItem,
+} from './search/germanNameSearch';
+import {
+  SearchPokemonError,
+  fetchJson,
+  isAbortError,
+  isHttpStatusError,
+  isSearchPokemonError,
+} from './http/pokeApiClient';
+import { mapWithConcurrency } from './utils/async';
 
 const POKE_API = 'https://pokeapi.co/api/v2';
 const SEARCH_RESULT_LIMIT = 20;
-const REQUEST_TIMEOUT_MS = 6000;
 const INDEX_REQUEST_CONCURRENCY = 8;
 const INDEX_SCAN_BATCH_SIZE = 40;
 const MAX_BATCHES_AFTER_EXACT_MATCH = 2;
@@ -19,14 +33,6 @@ const DETAIL_REQUEST_CONCURRENCY = 4;
 interface PokemonIndexItem {
   name: string;
   url: string;
-}
-
-/**
- * Normalized species entry used by the local name index.
- */
-interface BaseSpeciesIndexItem {
-  id: number;
-  pokemonName: string;
 }
 
 /**
@@ -87,72 +93,8 @@ interface EvolutionChainResponse {
   chain: EvolutionChainNode;
 }
 
-/**
- * Indexed localized entry for German search matching.
- */
-interface GermanPokemonIndexItem {
-  id: number;
-  germanName: string;
-  germanNameToleranceKey: string;
-}
-
-/**
- * Ranked localized match returned by text-query search.
- */
-interface GermanPokemonMatch {
-  item: GermanPokemonIndexItem;
-  quality: SearchMatchQuality;
-}
-
-/**
- * Stable error categories exposed by the search service.
- */
-export type SearchPokemonErrorCode = 'timeout' | 'network' | 'server';
-
-/**
- * Domain error used by UI code to show meaningful feedback.
- */
-export class SearchPokemonError extends Error {
-  readonly code: SearchPokemonErrorCode;
-  readonly status?: number;
-
-  /**
-   * Creates a typed search error with optional HTTP status context.
-   *
-   * @param code - Internal error category.
-   * @param message - Human-readable error text.
-   * @param status - Optional HTTP status code.
-   */
-  constructor(code: SearchPokemonErrorCode, message: string, status?: number) {
-    super(message);
-    this.name = 'SearchPokemonError';
-    this.code = code;
-    this.status = status;
-  }
-}
-
-/**
- * Internal marker error for non-5xx HTTP failures.
- */
-class HttpStatusError extends Error {
-  readonly status: number;
-
-  /**
-   * Creates an internal HTTP status marker error.
-   *
-   * @param status - HTTP response status code.
-   */
-  constructor(status: number) {
-    super(`Request failed: ${String(status)}`);
-    this.name = 'HttpStatusError';
-    this.status = status;
-  }
-}
-
 let speciesIndexPromise: Promise<BaseSpeciesIndexItem[]> | null = null;
 let speciesIndexCache: BaseSpeciesIndexItem[] | null = null;
-let localizedScanCursor = 0;
-const germanIndexById = new Map<number, GermanPokemonIndexItem | null>();
 const evolutionItemCache = new Map<number, PokemonEvolutionItem | null>();
 const detailCache = new Map<number, PokemonDetail>();
 
@@ -183,16 +125,6 @@ const TYPE_NAME_DE: Record<string, string> = {
 type PokemonEvolutionStage = 'Basis' | 'Phase 1' | 'Phase 2';
 
 /**
- * Detects explicit abort errors thrown by fetch/AbortSignal.
- *
- * @param error - Unknown thrown value.
- * @returns True when the error represents an abort.
- */
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
-}
-
-/**
  * Builds an empty evolution summary used as a safe UI fallback.
  *
  * @returns Evolution summary without visible relations.
@@ -209,149 +141,7 @@ function emptyEvolutionSummary(): {
   };
 }
 
-/**
- * Detects fetch timeout-style DOM exceptions.
- *
- * @param error - Unknown thrown value.
- * @returns True when the error represents a timeout.
- */
-function isTimeoutError(error: unknown): boolean {
-  return (
-    error instanceof DOMException &&
-    (error.name === 'TimeoutError' || error.message.toLowerCase().includes('timeout'))
-  );
-}
-
-/**
- * Throws an AbortError if the provided signal is already aborted.
- *
- * @param signal - Optional abort signal from caller context.
- */
-function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw signal.reason ?? new DOMException('Aborted', 'AbortError');
-  }
-}
-
-/**
- * Builds a timeout-aware signal that also honors caller cancellation.
- *
- * @param signal - Optional upstream abort signal.
- * @param timeoutMs - Timeout in milliseconds.
- * @returns Combined abort signal for the request.
- */
-function withTimeout(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
-  return signal
-    ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
-    : AbortSignal.timeout(timeoutMs);
-}
-
-/**
- * Narrowing helper for internal HTTP status errors.
- *
- * @param error - Unknown thrown value.
- * @param status - Optional expected status code.
- * @returns True when the error matches `HttpStatusError`.
- */
-function isHttpStatusError(error: unknown, status?: number): error is HttpStatusError {
-  if (!(error instanceof HttpStatusError)) {
-    return false;
-  }
-
-  if (status === undefined) {
-    return true;
-  }
-
-  return error.status === status;
-}
-
-/**
- * Runtime type guard for search-domain errors.
- *
- * @param error - Unknown thrown value.
- * @returns True when the value is a `SearchPokemonError`.
- */
-export function isSearchPokemonError(error: unknown): error is SearchPokemonError {
-  return error instanceof SearchPokemonError;
-}
-
-/**
- * Maps items concurrently with bounded worker count.
- *
- * @param items - Input items to process.
- * @param concurrency - Maximum number of active workers.
- * @param mapper - Async mapper applied per item.
- * @param signal - Optional cancellation signal.
- * @returns Mapper results in the same order as input items.
- */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  mapper: (item: T) => Promise<R>,
-  signal?: AbortSignal,
-): Promise<R[]> {
-  const results = Array.from({ length: items.length }, () => undefined as unknown as R);
-  let nextIndex = 0;
-
-  /**
-   * Worker loop that processes queue items until completion or cancellation.
-   *
-   * @returns Promise that resolves when this worker is finished.
-   */
-  async function worker() {
-    while (nextIndex < items.length) {
-      throwIfAborted(signal);
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      results[currentIndex] = await mapper(items[currentIndex]);
-    }
-  }
-
-  const workerCount = Math.min(Math.max(concurrency, 1), items.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  return results;
-}
-
-/**
- * Fetches JSON and maps transport errors to domain errors.
- *
- * @param url - Absolute endpoint URL.
- * @param signal - Optional cancellation signal.
- * @returns Parsed JSON payload typed as `T`.
- */
-async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  throwIfAborted(signal);
-
-  let response: Response;
-
-  try {
-    response = await fetch(url, { signal: withTimeout(signal, REQUEST_TIMEOUT_MS) });
-  } catch (error) {
-    if (isAbortError(error) && signal?.aborted) {
-      throw error;
-    }
-
-    if (isTimeoutError(error) || isAbortError(error)) {
-      throw new SearchPokemonError('timeout', 'Anfrage hat zu lange gedauert.');
-    }
-
-    throw new SearchPokemonError('network', 'Netzwerkfehler bei der Anfrage.');
-  }
-
-  if (!response.ok) {
-    if (response.status >= 500) {
-      throw new SearchPokemonError(
-        'server',
-        `Request failed: ${String(response.status)}`,
-        response.status,
-      );
-    }
-
-    throw new HttpStatusError(response.status);
-  }
-
-  return response.json() as Promise<T>;
-}
+export { SearchPokemonError, isSearchPokemonError };
 
 /**
  * Loads a Pokemon by id or canonical name and applies German display metadata.
@@ -873,266 +663,18 @@ async function fetchSpeciesIndex(signal?: AbortSignal): Promise<BaseSpeciesIndex
   return speciesIndexPromise;
 }
 
-/**
- * Determines whether localized scanning can stop early.
- *
- * @param fuzzyCount - Current count of fuzzy matches.
- * @param batchesAfterExactMatch - Number of batches scanned after finding exact match.
- * @returns True when enough matches were collected.
- */
-function shouldStopIndexScan(fuzzyCount: number, batchesAfterExactMatch: number | null): boolean {
-  if (batchesAfterExactMatch === null) {
-    return false;
-  }
-
-  if (fuzzyCount >= SEARCH_RESULT_LIMIT - 1) {
-    return true;
-  }
-
-  return batchesAfterExactMatch >= MAX_BATCHES_AFTER_EXACT_MATCH;
-}
-
-/**
- * Normalizes German text for tolerant umlaut and `ß` matching.
- *
- * @param value - Input text from query or index.
- * @returns Lowercased tolerance key with normalized variants.
- */
-function normalizeToleranceText(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/ä/g, 'ae')
-    .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue')
-    .replace(/ß/g, 'ss');
-}
-
-/**
- * Sorts index items alphabetically by German display name.
- *
- * @param a - First localized item.
- * @param b - Second localized item.
- * @returns Stable alphabetical ordering result.
- */
-function sortByGermanName(a: GermanPokemonIndexItem, b: GermanPokemonIndexItem): number {
-  return a.germanName.localeCompare(b.germanName, 'de-DE', { sensitivity: 'base' });
-}
-
-/**
- * Resolves tolerant distance threshold from candidate name length.
- *
- * @param value - Normalized candidate name.
- * @returns Max allowed edit distance.
- */
-function maxAllowedEditDistance(value: string): number {
-  if (value.length <= 5) {
-    return 1;
-  }
-
-  return 2;
-}
-
-/**
- * Calculates Levenshtein edit distance and exits early above the limit.
- *
- * @param source - Normalized query text.
- * @param target - Normalized candidate text.
- * @param maxDistance - Maximum tolerated distance.
- * @returns Distance or `null` when the limit is exceeded.
- */
-function levenshteinWithinLimit(
-  source: string,
-  target: string,
-  maxDistance: number,
-): number | null {
-  const sourceLength = source.length;
-  const targetLength = target.length;
-  if (Math.abs(sourceLength - targetLength) > maxDistance) {
-    return null;
-  }
-
-  const previous = Array.from({ length: targetLength + 1 }, (_, index) => index);
-
-  for (let row = 1; row <= sourceLength; row += 1) {
-    const current = [row];
-    let rowMin = current[0];
-
-    for (let col = 1; col <= targetLength; col += 1) {
-      const substitutionCost = source[row - 1] === target[col - 1] ? 0 : 1;
-      const value = Math.min(
-        previous[col] + 1,
-        current[col - 1] + 1,
-        previous[col - 1] + substitutionCost,
-      );
-      current[col] = value;
-      rowMin = Math.min(rowMin, value);
-    }
-
-    if (rowMin > maxDistance) {
-      return null;
-    }
-
-    for (let col = 0; col <= targetLength; col += 1) {
-      previous[col] = current[col];
-    }
-  }
-
-  return previous[targetLength] <= maxDistance ? previous[targetLength] : null;
-}
-
-/**
- * Places one localized entry into exact and partial buckets.
- *
- * @param item - Candidate localized item.
- * @param toleranceQuery - Normalized tolerant query text.
- * @param exact - Current exact match.
- * @param partial - Mutable partial match list.
- * @param seenPartialIds - Set used to avoid duplicate partial entries.
- * @returns Updated exact match value.
- */
-function pushStrongMatch(
-  item: GermanPokemonIndexItem,
-  toleranceQuery: string,
-  exact: GermanPokemonIndexItem | null,
-  partial: GermanPokemonIndexItem[],
-  seenPartialIds: Set<number>,
-): GermanPokemonIndexItem | null {
-  if (item.germanNameToleranceKey === toleranceQuery) {
-    return item;
-  }
-
-  if (!item.germanNameToleranceKey.includes(toleranceQuery)) {
-    return exact;
-  }
-
-  if (!seenPartialIds.has(item.id)) {
-    partial.push(item);
-    seenPartialIds.add(item.id);
-  }
-
-  return exact;
-}
-
-/**
- * Finds German name matches using a cached and incrementally localized index.
- *
- * @param toleranceQuery - Umlaut/`ß` tolerant normalized query.
- * @param signal - Optional cancellation signal.
- * @returns Ranked localized matches.
- */
-async function findGermanMatches(
-  toleranceQuery: string,
-  signal?: AbortSignal,
-): Promise<GermanPokemonMatch[]> {
-  const speciesIndex = await fetchSpeciesIndex(signal);
-  let exact: GermanPokemonIndexItem | null = null;
-  const partial: GermanPokemonIndexItem[] = [];
-  const seenPartialIds = new Set<number>();
-  let batchesAfterExactMatch: number | null = null;
-
-  for (const species of speciesIndex) {
-    const cached = germanIndexById.get(species.id);
-    if (cached === undefined || cached === null) {
-      continue;
-    }
-
-    const hadExact = exact !== null;
-    exact = pushStrongMatch(cached, toleranceQuery, exact, partial, seenPartialIds);
-    if (!hadExact && exact !== null) {
-      batchesAfterExactMatch = 0;
-    }
-  }
-
-  while (
-    localizedScanCursor < speciesIndex.length &&
-    !shouldStopIndexScan(partial.length, batchesAfterExactMatch)
-  ) {
-    const batchStart = localizedScanCursor;
-    const batch = speciesIndex.slice(batchStart, batchStart + INDEX_SCAN_BATCH_SIZE);
-    const hadExactBeforeBatch = exact !== null;
-
-    const localizedBatch = await mapWithConcurrency(
-      batch,
-      INDEX_REQUEST_CONCURRENCY,
-      (species) => fetchGermanIndexItem(species, signal),
-      signal,
-    );
-
-    for (const localizedItem of localizedBatch) {
-      if (localizedItem) {
-        germanIndexById.set(localizedItem.id, localizedItem);
-        const hadExact = exact !== null;
-        exact = pushStrongMatch(localizedItem, toleranceQuery, exact, partial, seenPartialIds);
-        if (!hadExact && exact !== null) {
-          batchesAfterExactMatch = 0;
-        }
-      }
-    }
-
-    for (const species of batch) {
-      if (!germanIndexById.has(species.id)) {
-        germanIndexById.set(species.id, null);
-      }
-    }
-
-    localizedScanCursor = batchStart + batch.length;
-
-    if (hadExactBeforeBatch && batchesAfterExactMatch !== null) {
-      batchesAfterExactMatch += 1;
-    }
-  }
-
-  if (exact || partial.length > 0) {
-    const sortedPartial = partial.filter((item) => item.id !== exact?.id).sort(sortByGermanName);
-    return [...(exact ? [exact] : []), ...sortedPartial]
-      .slice(0, SEARCH_RESULT_LIMIT)
-      .map((item) => ({
-        item,
-        quality: exact?.id === item.id ? ('exact' as const) : ('partial' as const),
-      }));
-  }
-
-  const tolerant: { item: GermanPokemonIndexItem; distance: number }[] = [];
-  for (const species of speciesIndex) {
-    const item = germanIndexById.get(species.id);
-    if (!item) {
-      continue;
-    }
-
-    const maxDistance = maxAllowedEditDistance(item.germanNameToleranceKey);
-    const distance = levenshteinWithinLimit(
-      toleranceQuery,
-      item.germanNameToleranceKey,
-      maxDistance,
-    );
-    if (distance === null) {
-      continue;
-    }
-
-    tolerant.push({ item, distance });
-  }
-
-  tolerant.sort((a, b) => {
-    if (a.distance !== b.distance) {
-      return a.distance - b.distance;
-    }
-
-    return sortByGermanName(a.item, b.item);
-  });
-
-  return tolerant.slice(0, SEARCH_RESULT_LIMIT).map(({ item }) => ({ item, quality: 'tolerant' }));
-}
-
-/**
- * Normalizes user input for all search branches.
- *
- * @param query - Raw user query.
- * @returns Lowercased and trimmed query.
- */
-function normalizeQuery(query: string): string {
-  return query.trim().toLowerCase();
-}
+const germanNameSearchIndex = createGermanNameSearchIndex(
+  {
+    fetchSpeciesIndex,
+    fetchGermanIndexItem,
+  },
+  {
+    searchResultLimit: SEARCH_RESULT_LIMIT,
+    indexRequestConcurrency: INDEX_REQUEST_CONCURRENCY,
+    indexScanBatchSize: INDEX_SCAN_BATCH_SIZE,
+    maxBatchesAfterExactMatch: MAX_BATCHES_AFTER_EXACT_MATCH,
+  },
+);
 
 /**
  * Loads one Pokemon detail payload for the dedicated detail view.
@@ -1220,7 +762,7 @@ export async function searchPokemon(
     return one ? [one] : [];
   }
 
-  const combined = await findGermanMatches(toleranceQuery, signal);
+  const combined = await germanNameSearchIndex.findGermanMatches(toleranceQuery, signal);
   if (combined.length === 0) {
     return [];
   }

@@ -209,10 +209,14 @@ Prioritize the three largest structural risks in the current repo and define a c
 ## Progress update
 
 - Phase 1 (routing and search orchestration decoupling) was implemented on 2026-03-07.
+- Phase 2 (service split with search-index and transport module separation) was implemented on 2026-03-07.
 - Implemented concretely:
   - hash-routing utilities in `src/features/navigation/hashRouter.ts`
   - search orchestration in `src/features/search/searchController.ts`
-  - integration in `src/App.svelte` with unchanged behavior
+  - transport and error mapping in `src/services/http/pokeApiClient.ts`
+  - search index/tolerance matching in `src/services/search/germanNameSearch.ts`
+  - concurrent async helper in `src/services/utils/async.ts`
+  - integration in `src/App.svelte` and `src/services/pokemonApi.ts` with unchanged behavior
 - Verification for the implemented part:
   - `npm run lint` successful
   - `npm run format:check` successful

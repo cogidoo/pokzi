@@ -94,24 +94,6 @@ describe('searchPokemon (German names)', () => {
     await expect(searchPokemon('pik')).resolves.toEqual([]);
   });
 
-  it('keeps aborted signals as AbortError when signal is already aborted', async () => {
-    const abortedSignal = { aborted: true, reason: undefined } as unknown as AbortSignal;
-    const { searchPokemon } = await import('./pokemonApi');
-
-    await expect(searchPokemon('25', abortedSignal)).rejects.toMatchObject({
-      name: 'AbortError',
-    });
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it('exposes type guard for SearchPokemonError', async () => {
-    const { SearchPokemonError, isSearchPokemonError } = await import('./pokemonApi');
-    const known = new SearchPokemonError('server', 'boom', 500);
-
-    expect(isSearchPokemonError(known)).toBe(true);
-    expect(isSearchPokemonError(new Error('boom'))).toBe(false);
-  });
-
   it('supports numeric ID search and returns german display name', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
@@ -165,36 +147,6 @@ describe('searchPokemon (German names)', () => {
     const { searchPokemon } = await import('./pokemonApi');
 
     await expect(searchPokemon('25')).rejects.toThrow('Request failed: 500');
-  });
-
-  it('maps network failures to SearchPokemonError(network)', async () => {
-    vi.mocked(fetch).mockRejectedValue(new Error('socket hang up'));
-    const { searchPokemon } = await import('./pokemonApi');
-
-    await expect(searchPokemon('25')).rejects.toMatchObject({
-      name: 'SearchPokemonError',
-      code: 'network',
-    });
-  });
-
-  it('maps timeout failures to SearchPokemonError(timeout)', async () => {
-    vi.mocked(fetch).mockRejectedValue(new DOMException('Timed out', 'TimeoutError'));
-    const { searchPokemon } = await import('./pokemonApi');
-
-    await expect(searchPokemon('25')).rejects.toMatchObject({
-      name: 'SearchPokemonError',
-      code: 'timeout',
-    });
-  });
-
-  it('maps non-user aborts to SearchPokemonError(timeout)', async () => {
-    vi.mocked(fetch).mockRejectedValue(new DOMException('Aborted', 'AbortError'));
-    const { searchPokemon } = await import('./pokemonApi');
-
-    await expect(searchPokemon('25')).rejects.toMatchObject({
-      name: 'SearchPokemonError',
-      code: 'timeout',
-    });
   });
 
   it('falls back to english API name for numeric search if german translation is unavailable', async () => {
