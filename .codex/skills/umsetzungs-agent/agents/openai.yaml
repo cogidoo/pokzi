@@ -1,0 +1,9 @@
+interface:
+  display_name: 'Umsetzungs-Agent'
+  short_description: 'Setzt scoped Arbeit seniorig, sauber und testbar um.'
+  default_prompt:
+    'Use $umsetzungs-agent to implement scoped work in this repository with senior-level
+    code quality, testing, and documentation discipline.'
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,30 @@
+:root {
+  --bg: #f7fafc;
+  --surface: #ffffff;
+  --surface-soft: #eef4ff;
+  --text: #152238;
+  --text-muted: #4a607a;
+  --primary: #1e66f5;
+  --primary-press: #174fc2;
+  --accent: #ffb703;
+  --success: #19a974;
+  --error: #d64545;
+  --border: #d6e0f0;
+
+  --space-1: 8px;
+  --space-2: 12px;
+  --space-3: 16px;
+  --space-4: 20px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-input: 14px;
+  --radius-card: 18px;
+  --radius-chip: 999px;
+
+  --shadow-card: 0 6px 18px rgba(21, 34, 56, 0.08);
+
+  --font-main:
+    'Atkinson Hyperlegible', 'Nunito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pokzi">
+  <defs>
+    <linearGradient id="pokzi-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e66f5" />
+      <stop offset="100%" stop-color="#174fc2" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#pokzi-bg)" />
+  <path
+    d="M20 16h17.5c8.6 0 14.5 5.4 14.5 13.4S46.1 43 37.5 43H30v10H20V16Zm17 18c3.2 0 5.2-1.8 5.2-4.6S40.2 25 37 25h-7v9h7Z"
+    fill="#ffffff"
+  />
+</svg>

@@ -1,0 +1,15 @@
+# Project-local Codex configuration for startai.
+# Repo-specific specialist agents live under `.codex/skills/`.
+# Use the local `anforderungs-agent` skill for requirements intake,
+# scope review, and product concept writing in this repository.
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+bearer_token_env_var = "CONTEXT7_API_KEY"
+
+[mcp_servers.playwright]
+command = "zsh"
+args = [
+  "-lc",
+  "source \"$HOME/.nvm/nvm.sh\" && npx @playwright/mcp@0.0.68 --browser chromium --headless --isolated --output-dir /tmp/playwright-mcp-output"
+]

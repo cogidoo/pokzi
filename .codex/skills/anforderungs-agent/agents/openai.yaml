@@ -1,0 +1,8 @@
+version: 1
+agent:
+  display_name: Anforderungs-Agent
+  short_description: Formt unscharfe Anforderungen in saubere, scope-sichere Produktkonzepte fuer dieses Repo.
+  default_prompt: >-
+    Nutze den Anforderungs-Agenten fuer dieses Repository. Nimm neue Anforderungen auf,
+    pruefe sie gegen den aktuellen Scope und formuliere daraus ein klares, umsetzbares
+    Konzept mit Flows, Regeln, Zustaenden und Akzeptanzkriterien.
