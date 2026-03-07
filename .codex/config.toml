@@ -13,3 +13,7 @@ args = [
   "-lc",
   "source \"$HOME/.nvm/nvm.sh\" && npx @playwright/mcp@0.0.68 --browser chromium --headless --isolated --output-dir /tmp/playwright-mcp-output"
 ]
+
+experimental_use_rmcp_client = true
+[mcp_servers.svelte]
+url = "https://mcp.svelte.dev/mcp"
