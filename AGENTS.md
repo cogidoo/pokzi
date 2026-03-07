@@ -77,6 +77,7 @@ Execution guide for coding agents working in this repository.
 3. Separate cleanup/refactor commits from behavior changes whenever possible.
 4. Do not commit generated artifacts (`coverage/`, `dist/`, `playwright-report/`, `test-results/`).
 5. Before handoff, verify the staged diff only contains intended files.
+6. Follow the commit title pattern `<type>(<scope>): <imperative summary>` from `docs/architecture/2026-03-07-commit-message-convention.md`.
 
 ## Testing Rules
 
