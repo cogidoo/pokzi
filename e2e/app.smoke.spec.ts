@@ -259,6 +259,252 @@ async function routeTolerantOnlyEvoli(page: Page) {
   });
 }
 
+async function routeFeature5LinearSplit(page: Page) {
+  await page.route('https://pokeapi.co/api/v2/**', async (route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname === '/api/v2/pokemon/1') {
+      return json(route, {
+        id: 1,
+        name: 'rootmon',
+        height: 7,
+        weight: 120,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/rootmon.png' },
+          },
+        },
+        types: [{ type: { name: 'grass' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/1') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Rootmon' },
+          { language: { name: 'de' }, name: 'Wurzel' },
+        ],
+        evolution_chain: { url: 'https://pokeapi.co/api/v2/evolution-chain/99/' },
+      });
+    }
+
+    if (url.pathname === '/api/v2/evolution-chain/99') {
+      return json(route, {
+        chain: {
+          species: { name: 'rootmon', url: 'https://pokeapi.co/api/v2/pokemon-species/1/' },
+          evolves_to: [
+            {
+              species: { name: 'midmon', url: 'https://pokeapi.co/api/v2/pokemon-species/2/' },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'branchone',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/3/',
+                  },
+                  evolves_to: [],
+                },
+                {
+                  species: {
+                    name: 'branchtwo',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/4/',
+                  },
+                  evolves_to: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/2') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Midmon' },
+          { language: { name: 'de' }, name: 'Mitte' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/3') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Branchone' },
+          { language: { name: 'de' }, name: 'Ast Eins' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/4') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Branchtwo' },
+          { language: { name: 'de' }, name: 'Ast Zwei' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/midmon') {
+      return json(route, {
+        id: 2,
+        name: 'midmon',
+        height: 8,
+        weight: 160,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/midmon.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/branchone') {
+      return json(route, {
+        id: 3,
+        name: 'branchone',
+        height: 9,
+        weight: 180,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/branchone.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/branchtwo') {
+      return json(route, {
+        id: 4,
+        name: 'branchtwo',
+        height: 9,
+        weight: 180,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/branchtwo.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    return json(route, {}, 404);
+  });
+}
+
+async function routeEvolutionDetailFailure(page: Page) {
+  await page.route('https://pokeapi.co/api/v2/**', async (route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname === '/api/v2/pokemon-species' && url.searchParams.get('limit') === '1400') {
+      return json(route, {
+        results: [{ name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/25') {
+      return json(route, {
+        id: 25,
+        name: 'pikachu',
+        height: 4,
+        weight: 60,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/pikachu.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/26') {
+      return json(route, {}, 500);
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/25') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Pikachu' },
+          { language: { name: 'de' }, name: 'Pikachu' },
+        ],
+        evolution_chain: {
+          url: 'https://pokeapi.co/api/v2/evolution-chain/10/',
+        },
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/172') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Pichu' },
+          { language: { name: 'de' }, name: 'Pichu' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/26') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Raichu' },
+          { language: { name: 'de' }, name: 'Raichu' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/evolution-chain/10') {
+      return json(route, {
+        chain: {
+          species: { name: 'pichu', url: 'https://pokeapi.co/api/v2/pokemon-species/172/' },
+          evolves_to: [
+            {
+              species: { name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' },
+              evolves_to: [
+                {
+                  species: { name: 'raichu', url: 'https://pokeapi.co/api/v2/pokemon-species/26/' },
+                  evolves_to: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/pichu') {
+      return json(route, {
+        id: 172,
+        name: 'pichu',
+        height: 3,
+        weight: 20,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/pichu.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/raichu') {
+      return json(route, {
+        id: 26,
+        name: 'raichu',
+        height: 8,
+        weight: 300,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/raichu.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    return json(route, {}, 404);
+  });
+}
+
 test('zeigt initialen Such-Hinweis', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Suche starten' })).toBeVisible();
@@ -355,4 +601,41 @@ test('Clear-Button im Suchfeld bleibt touch-freundlich gross', async ({ page }) 
   expect(box).not.toBeNull();
   expect(box?.width ?? 0).toBeGreaterThanOrEqual(48);
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+});
+
+test('Feature 5 zeigt verzweigte Pfade nach linearem Zwischenschritt als getrennte Gruppen', async ({
+  page,
+}) => {
+  await routeFeature5LinearSplit(page);
+  await page.goto('/#/pokemon/1');
+
+  await expect(page.getByRole('heading', { name: 'Wurzel' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Entwicklungsweg' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Entwicklungszweig 1' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Entwicklungszweig 2' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zu Ast Eins wechseln' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zu Ast Zwei wechseln' })).toBeVisible();
+  await expect(page.getByText('Elektro').first()).toBeVisible();
+});
+
+test('Fehlgeschlagener Evolutionswechsel hält URL und sichtbare Details synchron', async ({
+  page,
+}) => {
+  await routeEvolutionDetailFailure(page);
+  await page.goto('/');
+
+  await page.getByLabel('Pokemon suchen').fill('pika');
+  await page.getByRole('button', { name: 'Suchen' }).click();
+  await page.getByRole('button', { name: /Pikachu/i }).click();
+
+  await expect(page.getByRole('heading', { name: 'Pikachu' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/pokemon\/25$/);
+  await page.getByRole('button', { name: 'Zu Raichu wechseln' }).click();
+
+  await expect(
+    page.getByText('Der Pokemon-Server antwortet gerade nicht richtig. Bitte versuche es erneut.'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pikachu' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/pokemon\/25$/);
 });

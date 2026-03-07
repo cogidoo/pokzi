@@ -1,6 +1,7 @@
 import type {
   PokemonDetail,
-  PokemonEvolutionItem,
+  PokemonEvolutionBranchGroup,
+  PokemonEvolutionTile,
   PokemonSearchResult,
   SearchMatchQuality,
 } from '../types/pokemon';
@@ -95,7 +96,7 @@ interface EvolutionChainResponse {
 
 let speciesIndexPromise: Promise<BaseSpeciesIndexItem[]> | null = null;
 let speciesIndexCache: BaseSpeciesIndexItem[] | null = null;
-const evolutionItemCache = new Map<number, PokemonEvolutionItem | null>();
+const evolutionItemCache = new Map<number, PokemonEvolutionTile | null>();
 const detailCache = new Map<number, PokemonDetail>();
 
 const TYPE_NAME_DE: Record<string, string> = {
@@ -131,11 +132,15 @@ type PokemonEvolutionStage = 'Basis' | 'Phase 1' | 'Phase 2';
  */
 function emptyEvolutionSummary(): {
   stage: PokemonEvolutionStage;
-  previous: PokemonEvolutionItem[];
-  next: PokemonEvolutionItem[];
+  sharedPath: PokemonEvolutionTile[];
+  branchGroups: PokemonEvolutionBranchGroup[];
+  previous: PokemonEvolutionTile[];
+  next: PokemonEvolutionTile[];
 } {
   return {
     stage: 'Basis',
+    sharedPath: [],
+    branchGroups: [],
     previous: [],
     next: [],
   };
@@ -376,21 +381,19 @@ function findEvolutionPath(
 }
 
 /**
- * Collects all reachable later evolution nodes in chronological level order.
+ * Collects all ordered branch paths from one node to every reachable leaf.
  *
- * @param startNodes - Immediate next nodes after the current Pokemon.
- * @returns Ordered descendant nodes by evolution depth.
+ * @param startNode - Start node of one later evolution path.
+ * @returns Ordered node paths from nearest node to deepest leaf.
  */
-function collectReachableLaterNodes(startNodes: EvolutionChainNode[]): EvolutionChainNode[] {
-  const ordered: EvolutionChainNode[] = [];
-  let level = [...startNodes];
-
-  while (level.length > 0) {
-    ordered.push(...level);
-    level = level.flatMap((node) => node.evolves_to);
+function collectBranchPaths(startNode: EvolutionChainNode): EvolutionChainNode[][] {
+  if (startNode.evolves_to.length === 0) {
+    return [[startNode]];
   }
 
-  return ordered;
+  return startNode.evolves_to.flatMap((nextNode) =>
+    collectBranchPaths(nextNode).map((childPath) => [startNode, ...childPath]),
+  );
 }
 
 /**
@@ -464,7 +467,7 @@ async function resolveEvolutionStage(
 async function resolveEvolutionItem(
   node: EvolutionChainNode,
   signal?: AbortSignal,
-): Promise<PokemonEvolutionItem | null> {
+): Promise<PokemonEvolutionTile | null> {
   const speciesId = extractIdFromPokemonSpeciesUrl(node.species.url);
   if (!speciesId) {
     return null;
@@ -498,9 +501,52 @@ async function resolveEvolutionItem(
     id: speciesId,
     displayName,
     image,
+    types: (pokemon?.types ?? [])
+      .map((entry) => ({ name: TYPE_NAME_DE[entry.type.name] ?? entry.type.name }))
+      .slice(0, 2),
   };
   evolutionItemCache.set(speciesId, item);
   return item;
+}
+
+/**
+ * Builds later evolution branch groups in source-chain order.
+ *
+ * @param currentNode - Current Pokemon node from the resolved path.
+ * @param originId - Stable id of the currently open detail Pokemon.
+ * @param signal - Optional cancellation signal.
+ * @returns Ordered branch groups with items from nearest to deeper stages.
+ */
+async function resolveBranchGroups(
+  currentNode: EvolutionChainNode,
+  originId: number,
+  signal?: AbortSignal,
+): Promise<PokemonEvolutionBranchGroup[]> {
+  const allBranchPaths = currentNode.evolves_to.flatMap((branchRoot) =>
+    collectBranchPaths(branchRoot),
+  );
+  const groups = await mapWithConcurrency(
+    allBranchPaths,
+    DETAIL_REQUEST_CONCURRENCY,
+    async (branchPath) => {
+      const items = (
+        await mapWithConcurrency(branchPath, DETAIL_REQUEST_CONCURRENCY, (node) =>
+          resolveEvolutionItem(node, signal),
+        )
+      ).filter((item): item is PokemonEvolutionTile => item !== null);
+
+      if (items.length === 0) {
+        return null;
+      }
+
+      return {
+        originId,
+        items,
+      } satisfies PokemonEvolutionBranchGroup;
+    },
+  );
+
+  return groups.filter((group): group is PokemonEvolutionBranchGroup => group !== null);
 }
 
 /**
@@ -508,17 +554,21 @@ async function resolveEvolutionItem(
  *
  * @param pokemonName - Canonical Pokemon name.
  * @param species - Optional species payload.
+ * @param currentPokemonId - Stable detail id used as branch-group origin.
  * @param signal - Optional cancellation signal.
  * @returns Summary fields for detail UI.
  */
 async function resolveEvolutionSummary(
   pokemonName: string,
   species: PokemonSpeciesResponse | null,
+  currentPokemonId: number,
   signal?: AbortSignal,
 ): Promise<{
   stage: PokemonEvolutionStage;
-  previous: PokemonEvolutionItem[];
-  next: PokemonEvolutionItem[];
+  sharedPath: PokemonEvolutionTile[];
+  branchGroups: PokemonEvolutionBranchGroup[];
+  previous: PokemonEvolutionTile[];
+  next: PokemonEvolutionTile[];
 }> {
   const chainUrl = species?.evolution_chain?.url;
   if (!chainUrl) {
@@ -540,25 +590,33 @@ async function resolveEvolutionSummary(
       return emptyEvolutionSummary();
     }
 
-    const target = path[path.length - 1];
-    const previousNodes = path.slice(0, -1);
-    const nextNodes = collectReachableLaterNodes(target.evolves_to);
-
-    const previous = (
-      await mapWithConcurrency(previousNodes, DETAIL_REQUEST_CONCURRENCY, (node) =>
+    const currentNode = path[path.length - 1];
+    const sharedPath = (
+      await mapWithConcurrency(path, DETAIL_REQUEST_CONCURRENCY, (node) =>
         resolveEvolutionItem(node, signal),
       )
-    ).filter((item): item is PokemonEvolutionItem => item !== null);
-    const next = (
-      await mapWithConcurrency(nextNodes, DETAIL_REQUEST_CONCURRENCY, (node) =>
-        resolveEvolutionItem(node, signal),
-      )
-    ).filter((item): item is PokemonEvolutionItem => item !== null);
+    ).filter((item): item is PokemonEvolutionTile => item !== null);
+    const branchGroups = await resolveBranchGroups(currentNode, currentPokemonId, signal);
+    const previous = sharedPath
+      .slice(0, -1)
+      .map((item) => ({ id: item.id, displayName: item.displayName, image: item.image }));
+    const next = Array.from(
+      new Map(
+        branchGroups.flatMap((group) =>
+          group.items.map(
+            (item) =>
+              [item.id, { id: item.id, displayName: item.displayName, image: item.image }] as const,
+          ),
+        ),
+      ).values(),
+    );
 
     return {
       stage: mapDepthToEvolutionStage(path.length - 1),
-      previous,
-      next,
+      sharedPath,
+      branchGroups,
+      previous, // Deprecated compatibility field.
+      next, // Deprecated compatibility field.
     };
   } catch (error) {
     if (isHttpStatusError(error, 404)) {
@@ -698,7 +756,7 @@ export async function fetchPokemonDetail(
     let shouldCacheDetail = true;
     let evolution = emptyEvolutionSummary();
     try {
-      evolution = await resolveEvolutionSummary(data.name, species, signal);
+      evolution = await resolveEvolutionSummary(data.name, species, data.id, signal);
     } catch (error) {
       if (isAbortError(error) && signal?.aborted) {
         throw error;

@@ -24,12 +24,21 @@ export interface PokemonSearchResult {
 }
 
 /**
- * Evolution summary fields for one Pokemon detail page.
+ * Evolution tile rendered in the detail evolution summary.
  */
-export interface PokemonEvolutionItem {
+export interface PokemonEvolutionTile {
   id: number;
   displayName: string;
   image: string | null;
+  types?: PokemonType[];
+}
+
+/**
+ * One grouped branch of later evolutions tied to a shared origin tile.
+ */
+export interface PokemonEvolutionBranchGroup {
+  originId: number;
+  items: PokemonEvolutionTile[];
 }
 
 /**
@@ -37,8 +46,16 @@ export interface PokemonEvolutionItem {
  */
 export interface PokemonEvolutionSummary {
   stage: 'Basis' | 'Phase 1' | 'Phase 2';
-  previous: PokemonEvolutionItem[];
-  next: PokemonEvolutionItem[];
+  sharedPath?: PokemonEvolutionTile[];
+  branchGroups?: PokemonEvolutionBranchGroup[];
+  /**
+   * Transitional compatibility field for legacy tests/components.
+   */
+  previous?: PokemonEvolutionTile[];
+  /**
+   * Transitional compatibility field for legacy tests/components.
+   */
+  next?: PokemonEvolutionTile[];
 }
 
 /**

@@ -9,6 +9,7 @@ Children can understand a Pokemon's place in its evolution path and jump directl
 - Global UI rules, tokens, accessibility, motion, and responsive behavior live in `DESIGN_BRIEF.md`.
 - This feature document defines only the evolution-navigation-specific composition and visual acceptance for feature `03`.
 - This feature extends the detail page described in `02-pokemon-detail.md`.
+- Branch readability refinements and evolution-item type chips are defined in `05-evolution-branch-readability-and-types.md`.
 
 ## User Value
 
@@ -21,6 +22,7 @@ The user sees the evolution path as a simple visual sequence instead of plain te
 - Clear highlight for the currently open Pokemon
 - Direct navigation from evolution items to the tapped Pokemon detail page
 - Simple handling for complete visible evolution paths, including later branching options
+- Baseline navigation behavior for evolution items; branch-readability and type-chip extensions are handled in feature `05`
 
 ## Non-Scope
 

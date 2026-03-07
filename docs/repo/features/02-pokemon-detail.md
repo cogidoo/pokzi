@@ -9,6 +9,7 @@ A selected Pokemon opens into a dedicated detail view that explains the most imp
 - Global UI rules, tokens, accessibility, motion, and responsive behavior live in `DESIGN_BRIEF.md`.
 - This feature document defines only the detail-screen-specific hierarchy, composition, and visual acceptance for feature `02`.
 - Evolution-specific UI behavior is refined further in `03-evolution-navigation.md`.
+- Branch readability and evolution-item type-chip extensions are defined in `05-evolution-branch-readability-and-types.md`.
 
 ## User Value
 

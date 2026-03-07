@@ -650,7 +650,7 @@ describe('App', () => {
     expect(window.location.hash).toBe('#/pokemon/172');
   });
 
-  it('renders branching next evolutions as stacked tiles', async () => {
+  it('renders branching next evolutions as grouped tiles', async () => {
     window.history.pushState({}, '', '/#/pokemon/133');
     fetchPokemonDetailMock.mockResolvedValueOnce({
       id: 133,
@@ -677,7 +677,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Evoli' })).toBeInTheDocument();
     });
-    expect(screen.queryByLabelText('Weitere Entwicklungen')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Weitere Entwicklungszweige')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zu Aquana wechseln' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zu Blitza wechseln' })).toBeInTheDocument();
     expect(screen.getAllByText('Kein Bild').length).toBeGreaterThan(0);
@@ -808,6 +808,7 @@ describe('App', () => {
       ).toBeInTheDocument();
     });
     expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    expect(window.location.hash).toBe('#/pokemon/25');
     expect(screen.getByRole('button', { name: 'Erneut versuchen' })).toBeInTheDocument();
   });
 
@@ -1050,5 +1051,73 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Ditto' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('heading', { name: 'Entwicklung' })).not.toBeInTheDocument();
+  });
+
+  it('renders feature-05 shared path and branch groups with type chips', async () => {
+    window.history.pushState({}, '', '/#/pokemon/133');
+    fetchPokemonDetailMock.mockResolvedValueOnce(
+      detailFixture({
+        id: 133,
+        name: 'eevee',
+        displayName: 'Evoli',
+        types: [{ name: 'Normal' }],
+        evolution: {
+          stage: 'Basis',
+          sharedPath: [
+            {
+              id: 133,
+              displayName: 'Evoli',
+              image: 'https://img/evoli.png',
+              types: [{ name: 'Normal' }],
+            },
+          ],
+          branchGroups: [
+            {
+              originId: 133,
+              items: [
+                { id: 134, displayName: 'Aquana', image: null, types: [{ name: 'Wasser' }] },
+                {
+                  id: 135,
+                  displayName: 'Blitza',
+                  image: 'https://img/blitza.png',
+                  types: [{ name: 'Elektro' }],
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Evoli' })).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Weitere Entwicklungszweige')).toBeInTheDocument();
+    expect(screen.getByText('Wasser')).toBeInTheDocument();
+    expect(screen.getByText('Elektro')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Zu Evoli wechseln' })).not.toBeInTheDocument();
+  });
+
+  it('does not retry detail loading when retry handler runs outside detail route', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockRejectedValueOnce(new Error('boom'));
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByText('Details konnten nicht geladen werden')).toBeInTheDocument();
+    });
+    const retryButton = screen.getByRole('button', { name: 'Erneut versuchen' });
+
+    window.history.pushState({}, '', '/#/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Suche starten' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(retryButton);
+    expect(fetchPokemonDetailMock).toHaveBeenCalledTimes(1);
   });
 });

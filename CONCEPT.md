@@ -32,6 +32,7 @@ The current repo foundation centers on:
 - a clear, touch-friendly results list
 - a dedicated Pokemon detail view
 - simple visual evolution chain inside the detail flow
+- readable evolution branching with German type chips per visible evolution item
 - strong language, touch, and clarity constraints for children
 
 ## Repo Documents

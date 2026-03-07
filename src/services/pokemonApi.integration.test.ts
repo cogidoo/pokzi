@@ -1565,6 +1565,78 @@ describe('searchPokemon (German names)', () => {
     expect(detail?.evolution.next).toEqual([]);
   });
 
+  it('keeps later branch groups when current chain node URL is malformed', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu', 10)));
+      }
+
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'pichu', url: 'https://pokeapi.co/api/v2/pokemon-species/172/' },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'pikachu',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/not-a-number/',
+                  },
+                  evolves_to: [
+                    {
+                      species: {
+                        name: 'raichu',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/26/',
+                      },
+                      evolves_to: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/26')) {
+        return Promise.resolve(asResponse(speciesNames('Raichu')));
+      }
+
+      if (url.endsWith('/pokemon/raichu')) {
+        return Promise.resolve(asResponse(makePokemon(26, 'raichu')));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.evolution.stage).toBe('Phase 1');
+    expect(detail?.evolution.branchGroups).toEqual([
+      {
+        originId: 25,
+        items: [
+          {
+            id: 26,
+            displayName: 'Raichu',
+            image: 'https://img/raichu.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+      },
+    ]);
+    expect(detail?.evolution.next).toEqual([
+      { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+    ]);
+  });
+
   it('keeps detail usable when evolution-chain lookup fails with non-404 status', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
@@ -2074,11 +2146,221 @@ describe('searchPokemon (German names)', () => {
     const { fetchPokemonDetail } = await import('./pokemonApi');
     const detail = await fetchPokemonDetail(133);
 
-    expect(detail?.evolution.stage).toBe('Basis');
-    expect(detail?.evolution.next).toEqual([
+    expect(detail).not.toBeNull();
+    if (!detail) {
+      throw new Error('Expected detail payload for Evoli');
+    }
+
+    expect(detail.evolution.stage).toBe('Basis');
+    expect((detail.evolution.sharedPath ?? []).map((item) => item.displayName)).toEqual(['Evoli']);
+    expect(
+      (detail.evolution.branchGroups ?? []).map((group) =>
+        group.items.map((item) => item.displayName),
+      ),
+    ).toEqual([['Aquana', 'Tiefaquana'], ['Blitza']]);
+    expect(detail.evolution.next).toEqual([
       { id: 134, displayName: 'Aquana', image: 'https://img/vaporeon.png' },
-      { id: 135, displayName: 'Blitza', image: 'https://img/jolteon.png' },
       { id: 10001, displayName: 'Tiefaquana', image: 'https://img/deepvaporeon.png' },
+      { id: 135, displayName: 'Blitza', image: 'https://img/jolteon.png' },
+    ]);
+  });
+
+  it('splits branch groups when branching starts after one linear intermediate stage', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/1')) {
+        return Promise.resolve(asResponse(makePokemon(1, 'rootmon')));
+      }
+
+      if (url.endsWith('/pokemon-species/1')) {
+        return Promise.resolve(asResponse(speciesNames('Wurzel', 99)));
+      }
+
+      if (url.endsWith('/evolution-chain/99')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'rootmon', url: 'https://pokeapi.co/api/v2/pokemon-species/1/' },
+              evolves_to: [
+                {
+                  species: { name: 'midmon', url: 'https://pokeapi.co/api/v2/pokemon-species/2/' },
+                  evolves_to: [
+                    {
+                      species: {
+                        name: 'branchone',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/3/',
+                      },
+                      evolves_to: [],
+                    },
+                    {
+                      species: {
+                        name: 'branchtwo',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/4/',
+                      },
+                      evolves_to: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Mitte')));
+      }
+
+      if (url.endsWith('/pokemon-species/3')) {
+        return Promise.resolve(asResponse(speciesNames('Ast Eins')));
+      }
+
+      if (url.endsWith('/pokemon-species/4')) {
+        return Promise.resolve(asResponse(speciesNames('Ast Zwei')));
+      }
+
+      if (url.endsWith('/pokemon/midmon')) {
+        return Promise.resolve(asResponse(makePokemon(2, 'midmon')));
+      }
+
+      if (url.endsWith('/pokemon/branchone')) {
+        return Promise.resolve(asResponse(makePokemon(3, 'branchone')));
+      }
+
+      if (url.endsWith('/pokemon/branchtwo')) {
+        return Promise.resolve(asResponse(makePokemon(4, 'branchtwo')));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(1);
+
+    expect(detail?.evolution.branchGroups).toEqual([
+      {
+        originId: 1,
+        items: [
+          {
+            id: 2,
+            displayName: 'Mitte',
+            image: 'https://img/midmon.png',
+            types: [{ name: 'Elektro' }],
+          },
+          {
+            id: 3,
+            displayName: 'Ast Eins',
+            image: 'https://img/branchone.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+      },
+      {
+        originId: 1,
+        items: [
+          {
+            id: 2,
+            displayName: 'Mitte',
+            image: 'https://img/midmon.png',
+            types: [{ name: 'Elektro' }],
+          },
+          {
+            id: 4,
+            displayName: 'Ast Zwei',
+            image: 'https://img/branchtwo.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+      },
+    ]);
+    expect(detail?.evolution.next).toEqual([
+      { id: 2, displayName: 'Mitte', image: 'https://img/midmon.png' },
+      { id: 3, displayName: 'Ast Eins', image: 'https://img/branchone.png' },
+      { id: 4, displayName: 'Ast Zwei', image: 'https://img/branchtwo.png' },
+    ]);
+  });
+
+  it('maps localized type chips on shared path and branch items with max of two chips', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/1') || url.endsWith('/pokemon/bulbasaur')) {
+        return Promise.resolve(
+          asResponse({
+            ...makePokemon(1, 'bulbasaur'),
+            types: [
+              { type: { name: 'grass' } },
+              { type: { name: 'poison' } },
+              { type: { name: 'fairy' } },
+            ],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon/2') || url.endsWith('/pokemon/ivysaur')) {
+        return Promise.resolve(
+          asResponse({
+            ...makePokemon(2, 'ivysaur'),
+            types: [
+              { type: { name: 'grass' } },
+              { type: { name: 'poison' } },
+              { type: { name: 'dragon' } },
+            ],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/1')) {
+        return Promise.resolve(asResponse(speciesNames('Bisasam', 1)));
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Bisaknosp')));
+      }
+
+      if (url.endsWith('/evolution-chain/1')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'bulbasaur', url: 'https://pokeapi.co/api/v2/pokemon-species/1/' },
+              evolves_to: [
+                {
+                  species: { name: 'ivysaur', url: 'https://pokeapi.co/api/v2/pokemon-species/2/' },
+                  evolves_to: [],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(1);
+
+    expect(detail?.evolution.sharedPath).toEqual([
+      {
+        id: 1,
+        displayName: 'Bisasam',
+        image: 'https://img/bulbasaur.png',
+        types: [{ name: 'Pflanze' }, { name: 'Gift' }],
+      },
+    ]);
+    expect(detail?.evolution.branchGroups).toEqual([
+      {
+        originId: 1,
+        items: [
+          {
+            id: 2,
+            displayName: 'Bisaknosp',
+            image: 'https://img/ivysaur.png',
+            types: [{ name: 'Pflanze' }, { name: 'Gift' }],
+          },
+        ],
+      },
     ]);
   });
 

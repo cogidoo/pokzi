@@ -53,6 +53,7 @@ Current feature documents:
 - `02-pokemon-detail.md`
 - `03-evolution-navigation.md`
 - `04-search-input-tolerance.md`
+- `05-evolution-branch-readability-and-types.md`
 
 ## Authoring Rules
 

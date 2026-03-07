@@ -341,6 +341,7 @@ Layout rules:
 - Keep it simple and readable
 - Prefer a compact visual sequence over a technical graph
 - Show artwork and German names for all visible evolution items in the current chain path
+- Show German type chips for each visible evolution item when type data is available
 - Highlight the current Pokemon clearly inside the sequence
 - For branching evolutions, keep the shared earlier path inline and show all reachable later options in reading order without connector lines
 
@@ -350,22 +351,25 @@ Anatomy:
 - Optional short supporting sentence
 - Ordered chain containing every earlier stage, the current Pokemon, and every reachable later stage in the active path
 - Additional stacked branch groups only when multiple later evolutions exist
+- Evolution item metadata row with up to two German type chips
 
 Layout rules:
 
-- Each evolution item should contain artwork and German name.
+- Each evolution item should contain artwork, German name, and up to two German type chips when available.
 - Current Pokemon must be visibly active and not tappable.
 - Other evolution items must read as tappable cards or tiles, not plain text links.
 - Use simple directional cues through spacing and ordering, not diagram connectors.
 - The full sequence must stay understandable when it contains more than three stages.
 - When a visible chain no longer fits as one simple row, wrap or group it in a way that preserves chronological reading order.
 - Do not force a fixed desktop column count if that makes longer visible chains or later branches feel arbitrary.
+- Keep type chips visually secondary to artwork and name; chips support recognition but do not become the primary focus.
 
 Sizing guidance:
 
 - Evolution item image target: `72-88px`
 - Evolution item min tap height: `88px`
 - Name max: `2` lines before truncation or wrapping strategy is needed
+- Type chips per evolution item: max `2`, allow wrapping without horizontal scrolling
 - Keep the full section compact enough that it feels like one scan unit
 
 ### Status State

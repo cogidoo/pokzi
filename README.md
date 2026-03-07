@@ -17,7 +17,7 @@ Built to feel easy for children and maintainable for teams.
 - Child-friendly search flow with immediate feedback.
 - Large, easy-to-tap controls for tablet use.
 - German UI text throughout.
-- Dedicated detail page with key facts, a short description in the hero, and a visual evolution chain.
+- Dedicated detail page with key facts, a short description in the hero, and a visual evolution chain with readable branching.
 - Clear messages for loading, no results, and errors.
 
 ## For Developers
