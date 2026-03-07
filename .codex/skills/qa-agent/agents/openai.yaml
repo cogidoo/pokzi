@@ -1,0 +1,9 @@
+version: 1
+agent:
+  display_name: QA-Agent
+  short_description: Prueft Anforderungen und Umsetzung proaktiv auf Qualitaet, Tests, Accessibility und mobile-first Risiken.
+  default_prompt: >-
+    Nutze den QA-Agenten fuer dieses Repository. Pruefe Anforderungen,
+    Umsetzung oder Testabdeckung aus senioriger QA-Sicht mit Fokus auf
+    Teststrategie, Regressionen, Accessibility, Kinderkontext und
+    mobile-first Web-Qualitaet.

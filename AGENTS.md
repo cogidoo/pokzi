@@ -28,10 +28,12 @@ Execution guide for coding agents working in this repository.
 - Use `.codex/skills/umsetzungs-agent/SKILL.md` when the user asks for implementation, bugfixing, refactoring, hardening, code review, or senior delivery of scoped work in this repository.
 - Use `.codex/skills/ux-ui-agent/SKILL.md` when the user asks for UX/UI direction, visual concepting, accessibility-focused design review, child-friendly interaction design, screen-level refinement, or implementation-ready interface guidance.
 - Use `.codex/skills/software-architekt-agent/SKILL.md` when the user asks for architecture review, technical structure, module boundaries, state/service design, refactor planning, or pragmatic software architecture guidance in this repository.
+- Use `.codex/skills/qa-agent/SKILL.md` when the user asks for QA review, test strategy, requirement validation from a quality perspective, regression-risk analysis, accessibility QA, release-readiness review, or child-friendly/mobile-first quality assessment in this repository.
 - The trigger phrases `anforderungs-agent` and `requirements lead` should explicitly activate that local skill for this repository.
 - The trigger phrases `umsetzungs-agent`, `implementierungs-agent`, and `implementation lead` should explicitly activate that local skill for this repository.
 - The trigger phrases `ux-ui-agent`, `design-agent`, `ui-agent`, and `ux-agent` should explicitly activate that local skill for this repository.
 - The trigger phrases `software-architekt-agent`, `architektur-agent`, `software architect`, and `architecture lead` should explicitly activate that local skill for this repository.
+- The trigger phrases `qa-agent`, `qa agent`, `test-agent`, `quality engineer`, and `qa review` should explicitly activate that local skill for this repository.
 
 ## Repository Map
 
