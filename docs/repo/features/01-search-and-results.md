@@ -8,6 +8,7 @@ Children can quickly find Pokemon by German name or number and see clear, visual
 
 - Global UI rules, tokens, accessibility, motion, and responsive behavior live in `DESIGN_BRIEF.md`.
 - This feature document defines only the search/results-specific screen composition and visual acceptance for feature `01`.
+- Input-tolerance behavior for umlaut variants and minor typos is defined in `04-search-input-tolerance.md`.
 
 ## User Value
 
@@ -52,6 +53,7 @@ The user gets immediate feedback, can refine the query without friction, and can
 - Trim leading and trailing whitespace before evaluating the query.
 - Match text queries case-insensitively.
 - Prefer exact German-name matches over partial-name matches when both exist.
+- Apply tolerant text-recovery matching rules from `04-search-input-tolerance.md` after exact and partial German-name checks.
 - Keep the results list bounded so it remains fast and easy to scan on iPad.
 
 ## Content And Language Rules
@@ -88,6 +90,7 @@ The user gets immediate feedback, can refine the query without friction, and can
 
 - Show the results list directly below the search area.
 - Keep the current query visible so the user can refine it without losing context.
+- If all visible results are tolerant-name matches, show the refinement hint specified in `04-search-input-tolerance.md`.
 
 ## UX/UI Handoff
 
@@ -140,6 +143,7 @@ Implementation notes:
 - Loading should preserve layout rhythm instead of collapsing the page.
 - No-results should feel friendly and support immediate refinement.
 - Error should keep a clear retry action without technical language.
+- Tolerant-only success should use supportive hint styling, not error styling.
 
 Implementation notes:
 
@@ -157,6 +161,7 @@ Implementation notes:
 - Results render as one clear vertical list of tap-safe cards.
 - Card pressed and focus states are visible without noisy motion.
 - Loading, invalid, no-results, and error states are visually distinct but structurally consistent.
+- Tolerant-only hint appears in a consistent location without pushing the first result too far below the sticky search area.
 - The first visible result appears quickly below the search area without excessive empty space.
 - Search UI reads as a discovery surface rather than a generic utility form.
 - Result cards are glanceable in this order: artwork, name, then supporting metadata.
@@ -171,6 +176,7 @@ Implementation notes:
 - Text search matching is case-insensitive.
 - The result list updates automatically while typing and can also be triggered by the visible search button or Enter.
 - Result cards render image, German name, ID, German type labels, and evolution stage.
+- When only tolerant matches are shown, the UI displays the fixed German refinement hint from feature `04`.
 - Each result card is one clear tap target that opens the detail view without precision tapping.
 - All user-facing UI text is German.
 - Loading, no-results, error, success, neutral-start, and invalid-query states are all present and distinguishable.

@@ -5,6 +5,7 @@
 The current repo includes:
 
 - search input for German Pokemon names and numeric IDs
+- tolerant German-name search for umlaut/ss variants and minor typos
 - live-updating search results below the input
 - touch-friendly result cards with German labels
 - dedicated Pokemon detail pages

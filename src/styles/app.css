@@ -210,6 +210,16 @@ input:focus-visible {
   margin-top: 0;
 }
 
+.app__tolerant-hint {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  border: 1px solid #d6e4ff;
+  background: #eef5ff;
+  color: #2d4d80;
+  font-weight: 700;
+}
+
 .result-list {
   display: grid;
   gap: var(--space-4);

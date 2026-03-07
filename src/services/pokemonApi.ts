@@ -1,4 +1,9 @@
-import type { PokemonDetail, PokemonEvolutionItem, PokemonSearchResult } from '../types/pokemon';
+import type {
+  PokemonDetail,
+  PokemonEvolutionItem,
+  PokemonSearchResult,
+  SearchMatchQuality,
+} from '../types/pokemon';
 
 const POKE_API = 'https://pokeapi.co/api/v2';
 const SEARCH_RESULT_LIMIT = 20;
@@ -88,7 +93,15 @@ interface EvolutionChainResponse {
 interface GermanPokemonIndexItem {
   id: number;
   germanName: string;
-  germanNameNormalized: string;
+  germanNameToleranceKey: string;
+}
+
+/**
+ * Ranked localized match returned by text-query search.
+ */
+interface GermanPokemonMatch {
+  item: GermanPokemonIndexItem;
+  quality: SearchMatchQuality;
 }
 
 /**
@@ -346,18 +359,20 @@ async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
  * @param idOrName - Pokemon id or API name.
  * @param signal - Optional cancellation signal.
  * @param germanName - Localized display name to apply.
+ * @param matchQuality - Search ranking class used by tolerant-hint UI behavior.
  * @returns Enriched result or `null` on 404.
  */
 async function fetchPokemonByIdOrName(
   idOrName: string,
   signal: AbortSignal | undefined,
   germanName: string,
+  matchQuality: SearchMatchQuality,
 ): Promise<PokemonSearchResult | null> {
   try {
     const data = await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${idOrName}`, signal);
     const species = await fetchPokemonSpecies(data.id, signal);
     const evolutionStage = await resolveEvolutionStage(data.name, species, signal);
-    return mapPokemonResponse(data, germanName, evolutionStage);
+    return mapPokemonResponse(data, germanName, evolutionStage, matchQuality);
   } catch (error) {
     if (isHttpStatusError(error) && error.status === 404) {
       return null;
@@ -383,7 +398,7 @@ async function fetchPokemonById(
     const species = await fetchPokemonSpecies(data.id, signal);
     const germanName = getGermanNameFromSpecies(species);
     const evolutionStage = await resolveEvolutionStage(data.name, species, signal);
-    return mapPokemonResponse(data, germanName ?? data.name, evolutionStage);
+    return mapPokemonResponse(data, germanName ?? data.name, evolutionStage, 'exact');
   } catch (error) {
     if (isHttpStatusError(error) && error.status === 404) {
       return null;
@@ -784,7 +799,7 @@ async function fetchGermanIndexItem(
   return {
     id: species.id,
     germanName,
-    germanNameNormalized: germanName.toLowerCase(),
+    germanNameToleranceKey: normalizeToleranceText(germanName),
   };
 }
 
@@ -794,12 +809,14 @@ async function fetchGermanIndexItem(
  * @param data - Pokemon API payload.
  * @param germanName - Localized display name.
  * @param evolutionStage - Localized stage label.
+ * @param matchQuality - Search ranking class used by tolerant-hint UI behavior.
  * @returns UI-ready search result.
  */
 function mapPokemonResponse(
   data: PokemonResponse,
   germanName: string,
   evolutionStage: PokemonEvolutionStage,
+  matchQuality: SearchMatchQuality,
 ): PokemonSearchResult {
   return {
     id: data.id,
@@ -811,6 +828,7 @@ function mapPokemonResponse(
       null,
     types: data.types.map((entry) => ({ name: TYPE_NAME_DE[entry.type.name] ?? entry.type.name })),
     evolutionStage,
+    matchQuality,
   };
 }
 
@@ -875,33 +893,122 @@ function shouldStopIndexScan(fuzzyCount: number, batchesAfterExactMatch: number 
 }
 
 /**
- * Places one localized entry into exact/fuzzy match buckets.
+ * Normalizes German text for tolerant umlaut and `ß` matching.
+ *
+ * @param value - Input text from query or index.
+ * @returns Lowercased tolerance key with normalized variants.
+ */
+function normalizeToleranceText(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss');
+}
+
+/**
+ * Sorts index items alphabetically by German display name.
+ *
+ * @param a - First localized item.
+ * @param b - Second localized item.
+ * @returns Stable alphabetical ordering result.
+ */
+function sortByGermanName(a: GermanPokemonIndexItem, b: GermanPokemonIndexItem): number {
+  return a.germanName.localeCompare(b.germanName, 'de-DE', { sensitivity: 'base' });
+}
+
+/**
+ * Resolves tolerant distance threshold from candidate name length.
+ *
+ * @param value - Normalized candidate name.
+ * @returns Max allowed edit distance.
+ */
+function maxAllowedEditDistance(value: string): number {
+  if (value.length <= 5) {
+    return 1;
+  }
+
+  return 2;
+}
+
+/**
+ * Calculates Levenshtein edit distance and exits early above the limit.
+ *
+ * @param source - Normalized query text.
+ * @param target - Normalized candidate text.
+ * @param maxDistance - Maximum tolerated distance.
+ * @returns Distance or `null` when the limit is exceeded.
+ */
+function levenshteinWithinLimit(
+  source: string,
+  target: string,
+  maxDistance: number,
+): number | null {
+  const sourceLength = source.length;
+  const targetLength = target.length;
+  if (Math.abs(sourceLength - targetLength) > maxDistance) {
+    return null;
+  }
+
+  const previous = Array.from({ length: targetLength + 1 }, (_, index) => index);
+
+  for (let row = 1; row <= sourceLength; row += 1) {
+    const current = [row];
+    let rowMin = current[0];
+
+    for (let col = 1; col <= targetLength; col += 1) {
+      const substitutionCost = source[row - 1] === target[col - 1] ? 0 : 1;
+      const value = Math.min(
+        previous[col] + 1,
+        current[col - 1] + 1,
+        previous[col - 1] + substitutionCost,
+      );
+      current[col] = value;
+      rowMin = Math.min(rowMin, value);
+    }
+
+    if (rowMin > maxDistance) {
+      return null;
+    }
+
+    for (let col = 0; col <= targetLength; col += 1) {
+      previous[col] = current[col];
+    }
+  }
+
+  return previous[targetLength] <= maxDistance ? previous[targetLength] : null;
+}
+
+/**
+ * Places one localized entry into exact and partial buckets.
  *
  * @param item - Candidate localized item.
- * @param normalizedQuery - Normalized search text.
+ * @param toleranceQuery - Normalized tolerant query text.
  * @param exact - Current exact match.
- * @param fuzzy - Mutable fuzzy match list.
- * @param seenFuzzyIds - Set used to avoid duplicate fuzzy entries.
+ * @param partial - Mutable partial match list.
+ * @param seenPartialIds - Set used to avoid duplicate partial entries.
  * @returns Updated exact match value.
  */
-function pushMatch(
+function pushStrongMatch(
   item: GermanPokemonIndexItem,
-  normalizedQuery: string,
+  toleranceQuery: string,
   exact: GermanPokemonIndexItem | null,
-  fuzzy: GermanPokemonIndexItem[],
-  seenFuzzyIds: Set<number>,
+  partial: GermanPokemonIndexItem[],
+  seenPartialIds: Set<number>,
 ): GermanPokemonIndexItem | null {
-  if (item.germanNameNormalized === normalizedQuery) {
+  if (item.germanNameToleranceKey === toleranceQuery) {
     return item;
   }
 
-  if (!item.germanNameNormalized.includes(normalizedQuery)) {
+  if (!item.germanNameToleranceKey.includes(toleranceQuery)) {
     return exact;
   }
 
-  if (!seenFuzzyIds.has(item.id)) {
-    fuzzy.push(item);
-    seenFuzzyIds.add(item.id);
+  if (!seenPartialIds.has(item.id)) {
+    partial.push(item);
+    seenPartialIds.add(item.id);
   }
 
   return exact;
@@ -910,18 +1017,18 @@ function pushMatch(
 /**
  * Finds German name matches using a cached and incrementally localized index.
  *
- * @param normalizedQuery - Lowercased and trimmed query.
+ * @param toleranceQuery - Umlaut/`ß` tolerant normalized query.
  * @param signal - Optional cancellation signal.
- * @returns Ranked localized matches (exact first, then fuzzy).
+ * @returns Ranked localized matches.
  */
 async function findGermanMatches(
-  normalizedQuery: string,
+  toleranceQuery: string,
   signal?: AbortSignal,
-): Promise<GermanPokemonIndexItem[]> {
+): Promise<GermanPokemonMatch[]> {
   const speciesIndex = await fetchSpeciesIndex(signal);
   let exact: GermanPokemonIndexItem | null = null;
-  const fuzzy: GermanPokemonIndexItem[] = [];
-  const seenFuzzyIds = new Set<number>();
+  const partial: GermanPokemonIndexItem[] = [];
+  const seenPartialIds = new Set<number>();
   let batchesAfterExactMatch: number | null = null;
 
   for (const species of speciesIndex) {
@@ -931,7 +1038,7 @@ async function findGermanMatches(
     }
 
     const hadExact = exact !== null;
-    exact = pushMatch(cached, normalizedQuery, exact, fuzzy, seenFuzzyIds);
+    exact = pushStrongMatch(cached, toleranceQuery, exact, partial, seenPartialIds);
     if (!hadExact && exact !== null) {
       batchesAfterExactMatch = 0;
     }
@@ -939,7 +1046,7 @@ async function findGermanMatches(
 
   while (
     localizedScanCursor < speciesIndex.length &&
-    !shouldStopIndexScan(fuzzy.length, batchesAfterExactMatch)
+    !shouldStopIndexScan(partial.length, batchesAfterExactMatch)
   ) {
     const batchStart = localizedScanCursor;
     const batch = speciesIndex.slice(batchStart, batchStart + INDEX_SCAN_BATCH_SIZE);
@@ -956,7 +1063,7 @@ async function findGermanMatches(
       if (localizedItem) {
         germanIndexById.set(localizedItem.id, localizedItem);
         const hadExact = exact !== null;
-        exact = pushMatch(localizedItem, normalizedQuery, exact, fuzzy, seenFuzzyIds);
+        exact = pushStrongMatch(localizedItem, toleranceQuery, exact, partial, seenPartialIds);
         if (!hadExact && exact !== null) {
           batchesAfterExactMatch = 0;
         }
@@ -976,10 +1083,45 @@ async function findGermanMatches(
     }
   }
 
-  return [...(exact ? [exact] : []), ...fuzzy.filter((item) => item.id !== exact?.id)].slice(
-    0,
-    SEARCH_RESULT_LIMIT,
-  );
+  if (exact || partial.length > 0) {
+    const sortedPartial = partial.filter((item) => item.id !== exact?.id).sort(sortByGermanName);
+    return [...(exact ? [exact] : []), ...sortedPartial]
+      .slice(0, SEARCH_RESULT_LIMIT)
+      .map((item) => ({
+        item,
+        quality: exact?.id === item.id ? ('exact' as const) : ('partial' as const),
+      }));
+  }
+
+  const tolerant: { item: GermanPokemonIndexItem; distance: number }[] = [];
+  for (const species of speciesIndex) {
+    const item = germanIndexById.get(species.id);
+    if (!item) {
+      continue;
+    }
+
+    const maxDistance = maxAllowedEditDistance(item.germanNameToleranceKey);
+    const distance = levenshteinWithinLimit(
+      toleranceQuery,
+      item.germanNameToleranceKey,
+      maxDistance,
+    );
+    if (distance === null) {
+      continue;
+    }
+
+    tolerant.push({ item, distance });
+  }
+
+  tolerant.sort((a, b) => {
+    if (a.distance !== b.distance) {
+      return a.distance - b.distance;
+    }
+
+    return sortByGermanName(a.item, b.item);
+  });
+
+  return tolerant.slice(0, SEARCH_RESULT_LIMIT).map(({ item }) => ({ item, quality: 'tolerant' }));
 }
 
 /**
@@ -1068,6 +1210,7 @@ export async function searchPokemon(
   signal?: AbortSignal,
 ): Promise<PokemonSearchResult[]> {
   const normalized = normalizeQuery(query);
+  const toleranceQuery = normalizeToleranceText(query);
   if (!normalized) {
     return [];
   }
@@ -1077,7 +1220,7 @@ export async function searchPokemon(
     return one ? [one] : [];
   }
 
-  const combined = await findGermanMatches(normalized, signal);
+  const combined = await findGermanMatches(toleranceQuery, signal);
   if (combined.length === 0) {
     return [];
   }
@@ -1085,7 +1228,8 @@ export async function searchPokemon(
   const details = await mapWithConcurrency(
     combined,
     DETAIL_REQUEST_CONCURRENCY,
-    (item) => fetchPokemonByIdOrName(String(item.id), signal, item.germanName),
+    (match) =>
+      fetchPokemonByIdOrName(String(match.item.id), signal, match.item.germanName, match.quality),
     signal,
   );
 

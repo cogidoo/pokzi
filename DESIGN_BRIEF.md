@@ -400,6 +400,12 @@ Usage rules:
 - Short, friendly copy
 - Retry action in error state
 
+### Tolerant-Only Search Hint
+
+- When search results are based only on tolerant-name matching, show one short refinement hint above the result list.
+- Keep the hint in the neutral/supportive state family, not in warning/error styling.
+- Use concise German wording and keep the result-card layout unchanged.
+
 ### State Specs
 
 - Neutral start:
@@ -419,6 +425,10 @@ Usage rules:
   - Friendly dead-end handling
   - Encourage immediate refinement
   - No alarming visual treatment
+- Tolerant-only success:
+  - Show one short refinement hint between sticky search and first result card
+  - Keep the hint visually lighter than error/no-results states
+  - Preserve quick first-result visibility on iPad landscape
 - Error:
   - Stronger contrast than neutral/no-results
   - Include one clear retry action

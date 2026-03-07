@@ -221,6 +221,44 @@ async function routeNumericErrorThenRetrySuccess(page: Page) {
   });
 }
 
+async function routeTolerantOnlyEvoli(page: Page) {
+  await page.route('https://pokeapi.co/api/v2/**', async (route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname === '/api/v2/pokemon-species' && url.searchParams.get('limit') === '1400') {
+      return json(route, {
+        results: [{ name: 'eevee', url: 'https://pokeapi.co/api/v2/pokemon-species/133/' }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/133') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Eevee' },
+          { language: { name: 'de' }, name: 'Evoli' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/133') {
+      return json(route, {
+        id: 133,
+        name: 'eevee',
+        height: 3,
+        weight: 65,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/evoli.png' },
+          },
+        },
+        types: [{ type: { name: 'normal' } }],
+      });
+    }
+
+    return json(route, {}, 404);
+  });
+}
+
 test('zeigt initialen Such-Hinweis', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Suche starten' })).toBeVisible();
@@ -239,6 +277,18 @@ test('Textsuche zeigt deutsche Ergebnisdaten', async ({ page }) => {
   await expect(page.getByText('Stufe')).toBeVisible();
   await expect(page.getByText('Phase 1')).toBeVisible();
   await expect(page.getByText('Elektro')).toBeVisible();
+});
+
+test('Tolerant-only Suche zeigt Verfeinerungs-Hinweis', async ({ page }) => {
+  await routeTolerantOnlyEvoli(page);
+  await page.goto('/');
+
+  await page.getByLabel('Pokemon suchen').fill('evli');
+  await page.getByRole('button', { name: 'Suchen' }).click();
+
+  await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
+  await expect(page.getByText('Meintest du vielleicht:')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Evoli' })).toBeVisible();
 });
 
 test('ID-Suche zeigt korrektes Pokemon', async ({ page }) => {

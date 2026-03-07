@@ -50,6 +50,7 @@ Current feature documents:
 - `01-search-and-results.md`
 - `02-pokemon-detail.md`
 - `03-evolution-navigation.md`
+- `04-search-input-tolerance.md`
 
 ## Authoring Rules
 

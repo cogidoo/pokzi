@@ -27,6 +27,7 @@ Pokzi is a child-friendly, iPad-first Pokemon discovery repo with German-first U
 The current repo foundation centers on:
 
 - search by German Pokemon name or numeric ID
+- tolerant German-name search input handling (umlaut/ss variants and minor typos)
 - a clear, touch-friendly results list
 - a dedicated Pokemon detail view
 - simple visual evolution chain inside the detail flow

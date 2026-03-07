@@ -6,6 +6,7 @@ Find Pokemon in seconds:
 
 - Type a German name (`schiggy`)
 - Or type a number (`7`)
+- Keep finding results even with umlaut/`ss` variants or small typos
 - Get clear, touch-friendly cards instantly
 - Open a dedicated detail view for one Pokemon
 

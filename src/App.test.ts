@@ -117,6 +117,93 @@ describe('App', () => {
     expect(screen.queryByText(/Mindestens 2 Buchstaben/)).not.toBeInTheDocument();
   });
 
+  it('applies compact search-surface modifiers when results are visible', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    expect(container.querySelector('.app__search-rail--compact')).toBeInTheDocument();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+  });
+
+  it('shows tolerant-only hint above results when all matches are tolerant', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 133,
+        name: 'eevee',
+        displayName: 'Evoli',
+        image: 'https://img/evoli.png',
+        types: [{ name: 'Normal' }],
+        evolutionStage: 'Basis',
+        matchQuality: 'tolerant',
+      },
+    ]);
+
+    render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'evli' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+    expect(screen.getByText('Meintest du vielleicht:')).toBeInTheDocument();
+  });
+
+  it('hides tolerant-only hint when at least one strong match exists', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+        matchQuality: 'exact',
+      },
+      {
+        id: 26,
+        name: 'raichu',
+        displayName: 'Raichu',
+        image: 'https://img/raichu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 2',
+        matchQuality: 'tolerant',
+      },
+    ]);
+
+    render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikchu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Meintest du vielleicht:')).not.toBeInTheDocument();
+  });
+
   it('keeps UI bound to latest search when earlier request resolves later', async () => {
     const first = deferred<PokemonSearchResult[]>();
     const second = deferred<PokemonSearchResult[]>();

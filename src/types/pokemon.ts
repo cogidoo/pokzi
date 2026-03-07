@@ -8,6 +8,11 @@ export interface PokemonType {
 /**
  * Shape of a Pokemon search result rendered in the UI.
  */
+export type SearchMatchQuality = 'exact' | 'partial' | 'tolerant';
+
+/**
+ * Shape of a Pokemon search result rendered in the UI.
+ */
 export interface PokemonSearchResult {
   id: number;
   name: string;
@@ -15,6 +20,7 @@ export interface PokemonSearchResult {
   image: string | null;
   types: PokemonType[];
   evolutionStage: 'Basis' | 'Phase 1' | 'Phase 2';
+  matchQuality?: SearchMatchQuality;
 }
 
 /**

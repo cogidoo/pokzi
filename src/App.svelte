@@ -35,6 +35,7 @@
   let uiState = $state<SearchUiState>('idle');
   let errorMessage = $state('');
   let results = $state<PokemonSearchResult[]>([]);
+  let showTolerantHint = $state(false);
   let route = $state<AppRoute>(parseRoute(window.location.hash));
   let detailUiState = $state<DetailUiState>('loading');
   let detailErrorMessage = $state('');
@@ -146,6 +147,16 @@
   }
 
   /**
+   * Determines whether all visible search results come from tolerant matching.
+   *
+   * @param entries - Current visible search results.
+   * @returns True when every result is a tolerant fallback.
+   */
+  function isTolerantOnlyResultSet(entries: PokemonSearchResult[]): boolean {
+    return entries.length > 0 && entries.every((entry) => entry.matchQuality === 'tolerant');
+  }
+
+  /**
    * Aborts the currently active request if one exists.
    */
   function cancelInFlight() {
@@ -221,6 +232,7 @@
       uiState = 'idle';
       errorMessage = '';
       results = [];
+      showTolerantHint = false;
       return;
     }
 
@@ -228,6 +240,7 @@
       uiState = 'invalid';
       errorMessage = '';
       results = [];
+      showTolerantHint = false;
       return;
     }
 
@@ -245,6 +258,7 @@
 
       results = found;
       uiState = found.length > 0 ? 'success' : 'empty';
+      showTolerantHint = isTolerantOnlyResultSet(found);
     } catch (error) {
       if (requestToken !== nextRequestToken) {
         return;
@@ -257,6 +271,7 @@
       results = [];
       errorMessage = toErrorMessage(error);
       uiState = 'error';
+      showTolerantHint = false;
     }
   }
 
@@ -457,9 +472,9 @@
 <main class="app">
   {#if route.kind === 'search'}
     {@const compactSearch = COMPACT_SEARCH_STATES.includes(uiState)}
-    <section class="app__search-rail">
+    <section class={`app__search-rail ${compactSearch ? 'app__search-rail--compact' : ''}`}>
       <div class="app__search-shell">
-        <header class="app__header">
+        <header class={`app__header ${compactSearch ? 'app__header--compact' : ''}`}>
           <p class="app__eyebrow">Pokzi</p>
           <h1 class="app__title">Pokemon entdecken</h1>
           <p class="app__subtitle">
@@ -501,7 +516,7 @@
         />
       {:else if uiState === 'invalid'}
         <StatusState
-          tone="warning"
+          tone="neutral"
           title="Bitte genauer suchen"
           message="Gib mindestens 2 Buchstaben oder eine Nummer ein."
         />
@@ -512,6 +527,9 @@
           message="Probiere einen deutschen Namen wie &quot;bisasam&quot; oder eine Nummer wie &quot;25&quot;."
         />
       {:else}
+        {#if showTolerantHint}
+          <p class="app__tolerant-hint" role="status" aria-live="polite">Meintest du vielleicht:</p>
+        {/if}
         <div class="result-list" role="list" aria-label="Suchergebnisse">
           {#each results as pokemon (pokemon.id)}
             <ResultCard {pokemon} onSelect={openPokemonDetail} />

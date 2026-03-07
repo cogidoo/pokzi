@@ -289,6 +289,150 @@ describe('searchPokemon (German names)', () => {
     expect(results[0]?.name).toBe('pikachu');
     expect(results[0]?.displayName).toBe('Pikachu');
     expect(results[0]?.evolutionStage).toBe('Phase 1');
+    expect(results[0]?.matchQuality).toBe('exact');
+  });
+
+  it('treats umlaut and ss variants as equivalent in german-name matching', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.includes('/pokemon-species?limit=1400')) {
+        return Promise.resolve(
+          asResponse({
+            results: [{ name: 'custom', url: 'https://pokeapi.co/api/v2/pokemon-species/300/' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/300')) {
+        return Promise.resolve(asResponse(speciesNames('Flußel')));
+      }
+
+      if (url.endsWith('/pokemon/300')) {
+        return Promise.resolve(asResponse(makePokemon(300, 'custom')));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+    const [result] = await searchPokemon('flussel');
+
+    expect(result).toBeDefined();
+    expect(result.displayName).toBe('Flußel');
+    expect(result.matchQuality).toBe('exact');
+  });
+
+  it('returns tolerant match quality for one-edit typo in short german names', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.includes('/pokemon-species?limit=1400')) {
+        return Promise.resolve(
+          asResponse({
+            results: [{ name: 'eevee', url: 'https://pokeapi.co/api/v2/pokemon-species/133/' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/133')) {
+        return Promise.resolve(asResponse(speciesNames('Evoli')));
+      }
+
+      if (url.endsWith('/pokemon/133')) {
+        return Promise.resolve(asResponse(makePokemon(133, 'eevee')));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+    const [result] = await searchPokemon('evli');
+
+    expect(result).toBeDefined();
+    expect(result.displayName).toBe('Evoli');
+    expect(result.matchQuality).toBe('tolerant');
+  });
+
+  it('allows up to two edits for longer german names', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.includes('/pokemon-species?limit=1400')) {
+        return Promise.resolve(
+          asResponse({
+            results: [{ name: 'longmon', url: 'https://pokeapi.co/api/v2/pokemon-species/500/' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/500')) {
+        return Promise.resolve(asResponse(speciesNames('Abcdefgh')));
+      }
+
+      if (url.endsWith('/pokemon/500')) {
+        return Promise.resolve(asResponse(makePokemon(500, 'longmon')));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+    const [result] = await searchPokemon('abxdexgh');
+
+    expect(result).toBeDefined();
+    expect(result.displayName).toBe('Abcdefgh');
+    expect(result.matchQuality).toBe('tolerant');
+  });
+
+  it('orders tolerant typo matches by distance then alphabetically', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.includes('/pokemon-species?limit=1400')) {
+        return Promise.resolve(
+          asResponse({
+            results: [
+              { name: 'mon-1', url: 'https://pokeapi.co/api/v2/pokemon-species/401/' },
+              { name: 'mon-2', url: 'https://pokeapi.co/api/v2/pokemon-species/402/' },
+              { name: 'mon-3', url: 'https://pokeapi.co/api/v2/pokemon-species/403/' },
+            ],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/401')) {
+        return Promise.resolve(asResponse(speciesNames('Mirabu')));
+      }
+
+      if (url.endsWith('/pokemon-species/402')) {
+        return Promise.resolve(asResponse(speciesNames('Morybu')));
+      }
+
+      if (url.endsWith('/pokemon-species/403')) {
+        return Promise.resolve(asResponse(speciesNames('Murabu')));
+      }
+
+      if (url.endsWith('/pokemon/401')) {
+        return Promise.resolve(asResponse(makePokemon(401, 'mon-1')));
+      }
+
+      if (url.endsWith('/pokemon/402')) {
+        return Promise.resolve(asResponse(makePokemon(402, 'mon-2')));
+      }
+
+      if (url.endsWith('/pokemon/403')) {
+        return Promise.resolve(asResponse(makePokemon(403, 'mon-3')));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+    const results = await searchPokemon('marabu');
+
+    expect(results.map((entry) => entry.displayName)).toEqual(['Mirabu', 'Murabu', 'Morybu']);
+    expect(results.every((entry) => entry.matchQuality === 'tolerant')).toBe(true);
   });
 
   it('maps root chain pokemon to Basis stage', async () => {
