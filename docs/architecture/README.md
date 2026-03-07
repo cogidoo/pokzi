@@ -70,6 +70,7 @@ Recommended filename:
 ## Authoring Rules
 
 - Keep documents short, concrete, and implementation-oriented.
+- Write architecture documents in English.
 - Prefer one decision or plan per file.
 - State non-goals explicitly.
 - Define what must stay behaviorally unchanged.

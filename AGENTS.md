@@ -13,6 +13,7 @@ Execution guide for coding agents working in this repository.
 - `CONCEPT.md` is the repo-doc overview.
 - `docs/repo/*` is the source of truth for repo behavior and scope.
 - `docs/architecture/*` stores internal architecture outputs such as refactor plans, architecture reviews, and technical decision records.
+- `docs/architecture/*` must be written in English as developer-facing documentation.
 - `DESIGN_BRIEF.md` is the single source of truth for visual/UI direction.
 - `INSTRUCTIONS.md` stays high-level and must not duplicate detailed behavior logic.
 - If behavior changes, update the relevant file in `docs/repo/` first, then align implementation.
