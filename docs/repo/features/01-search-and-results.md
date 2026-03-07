@@ -45,6 +45,9 @@ The user gets immediate feedback, can refine the query without friction, and can
 - A one-character non-numeric query stays in a non-error invalid state with guidance to refine the input.
 - Keep a visible search button for confidence and accessibility, but do not require it.
 - Do not use a floating autocomplete dropdown.
+- While result cards are visible, the sticky header/search surface starts expanded at the top and switches to a compact state after downward list scrolling.
+- The sticky header/search surface returns to the expanded state when the user scrolls back to the top of the results page.
+- If compact mode makes the page no longer vertically scrollable (borderline list length), an upward scroll intent (mouse wheel up or touch swipe down) must expand the header/search surface again even without native scroll delta.
 
 ## Query Rules
 
@@ -114,6 +117,8 @@ Implementation notes:
 - Results begin immediately below the search area with a clear vertical rhythm.
 - The first card should be visible quickly after searching, without a large dead zone.
 - Once results are shown, explanatory text should reduce and scanability should increase.
+- The search header and helper chrome must compact only after the user has scrolled down in the results view.
+- Returning to page top (`scrollY` near `0`) must restore the expanded header state.
 
 Implementation notes:
 
@@ -156,7 +161,7 @@ Implementation notes:
 
 - Search area is clearly dominant and touch-safe.
 - Search field and submit button meet the touch-size rules from `DESIGN_BRIEF.md`.
-- Search remains understandable in both neutral and compact states.
+- Search remains understandable in both expanded and compact states.
 - Sticky search does not cover content awkwardly while scrolling.
 - Results render as one clear vertical list of tap-safe cards.
 - Card pressed and focus states are visible without noisy motion.
@@ -165,6 +170,9 @@ Implementation notes:
 - The first visible result appears quickly below the search area without excessive empty space.
 - Search UI reads as a discovery surface rather than a generic utility form.
 - Result cards are glanceable in this order: artwork, name, then supporting metadata.
+- Expanded header state is shown when results are present but the user is at the top of the page.
+- Compact header state is shown only after downward scrolling in the results view and resets to expanded at top.
+- In non-scrollable compact edge cases, an explicit upward intent still expands the header.
 
 ## Acceptance Criteria
 

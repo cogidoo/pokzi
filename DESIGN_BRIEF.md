@@ -210,6 +210,7 @@ Interaction rules:
 
 - Neutral start may show the full helper text.
 - Once the user starts interacting or results are visible, the search area may compact slightly, but label, field, and submit action must remain obvious.
+- In results mode, compacting should be tied to downward scrolling and should reset to expanded when the user returns to the top.
 - Clear action must not overlap typed content.
 - Sticky behavior must feel stable, not jumpy.
 

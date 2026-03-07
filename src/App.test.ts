@@ -29,6 +29,58 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+/**
+ * Sets the simulated vertical scroll position for jsdom-based scroll tests.
+ *
+ * @param value - Window scrollY value used by the app scroll listener.
+ */
+function setScrollY(value: number) {
+  Object.defineProperty(window, 'scrollY', {
+    configurable: true,
+    value,
+    writable: true,
+  });
+}
+
+/**
+ * Sets document and viewport heights for scrollability edge-case tests.
+ *
+ * @param scrollHeight - Simulated total page height.
+ * @param innerHeight - Simulated viewport height.
+ */
+function setPageHeights(scrollHeight: number, innerHeight: number) {
+  Object.defineProperty(document.documentElement, 'scrollHeight', {
+    configurable: true,
+    value: scrollHeight,
+  });
+  Object.defineProperty(document.body, 'scrollHeight', {
+    configurable: true,
+    value: scrollHeight,
+  });
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: innerHeight,
+  });
+}
+
+/**
+ * Dispatches a minimal touch event with one touch point for jsdom interaction tests.
+ *
+ * @param type - Native touch event type.
+ * @param clientY - Vertical touch coordinate.
+ */
+function dispatchTouch(type: 'touchstart' | 'touchmove', clientY?: number) {
+  const event = new Event(type);
+  Object.defineProperty(event, 'touches', {
+    configurable: true,
+    value: {
+      item: (index: number) =>
+        index === 0 && typeof clientY === 'number' ? ({ clientY } as Touch) : null,
+    },
+  });
+  window.dispatchEvent(event);
+}
+
 function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
   return {
     id: 25,
@@ -55,6 +107,8 @@ describe('App', () => {
     searchPokemonMock.mockReset();
     fetchPokemonDetailMock.mockReset();
     window.history.pushState({}, '', '/');
+    setScrollY(0);
+    setPageHeights(1600, 800);
   });
 
   afterEach(() => {
@@ -114,10 +168,10 @@ describe('App', () => {
       expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
     });
     expect(screen.getByText('#025')).toBeInTheDocument();
-    expect(screen.queryByText(/Mindestens 2 Buchstaben/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Mindestens 2 Buchstaben/)).toBeInTheDocument();
   });
 
-  it('applies compact search-surface modifiers when results are visible', async () => {
+  it('keeps search header expanded at top even when results are visible', async () => {
     searchPokemonMock.mockResolvedValueOnce([
       {
         id: 25,
@@ -139,8 +193,230 @@ describe('App', () => {
       expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
     });
 
-    expect(container.querySelector('.app__search-rail--compact')).toBeInTheDocument();
+    expect(container.querySelector('.app__search-rail--compact')).not.toBeInTheDocument();
+    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+  });
+
+  it('compacts on downward scroll in results and expands again near top', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
     expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    setScrollY(0);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+  });
+
+  it('expands from compact state on upward wheel intent when page is no longer scrollable', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    setPageHeights(800, 800);
+    window.dispatchEvent(new Event('resize'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+  });
+
+  it('stays compact on scroll-clamp to top without upward intent in non-scrollable edge case', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    setPageHeights(800, 800);
+    setScrollY(0);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+  });
+
+  it('keeps compact header on upward wheel intent while page is still scrollable', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+  });
+
+  it('ignores non-upward wheel and non-upward touch intents in compact mode', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 40 }));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    dispatchTouch('touchstart', 120);
+    dispatchTouch('touchmove', 100);
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    dispatchTouch('touchmove');
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    dispatchTouch('touchstart');
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+  });
+
+  it('expands from compact state on upward touch intent when page is no longer scrollable', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    setPageHeights(800, 800);
+    window.dispatchEvent(new Event('resize'));
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+
+    dispatchTouch('touchstart', 100);
+    dispatchTouch('touchmove', 120);
+    await Promise.resolve();
+    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
   });
 
   it('shows tolerant-only hint above results when all matches are tolerant', async () => {
@@ -314,7 +590,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Etwas ist schiefgelaufen')).toBeInTheDocument();
     });
-    expect(screen.queryByText(/Mindestens 2 Buchstaben/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Mindestens 2 Buchstaben/)).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
 

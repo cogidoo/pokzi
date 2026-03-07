@@ -505,6 +505,102 @@ async function routeEvolutionDetailFailure(page: Page) {
   });
 }
 
+async function routeTextSearchWithCount(page: Page, count: number) {
+  const entries = Array.from({ length: count }, (_, index) => {
+    const id = index + 1;
+    const idText = String(id);
+    return {
+      id,
+      name: `pika${idText}`,
+      de: `Pika ${idText}`,
+      sprite: `https://img.test/pika-${idText}.png`,
+      idText,
+    };
+  });
+
+  const entryById = new Map(entries.map((entry) => [entry.id, entry]));
+  const entryByName = new Map(entries.map((entry) => [entry.name, entry]));
+
+  await page.route('https://pokeapi.co/api/v2/**', async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+
+    if (path === '/api/v2/pokemon-species' && url.searchParams.get('limit') === '1400') {
+      return json(route, {
+        results: entries.map((entry) => ({
+          name: entry.name,
+          url: `https://pokeapi.co/api/v2/pokemon-species/${entry.idText}/`,
+        })),
+      });
+    }
+
+    if (path.startsWith('/api/v2/pokemon-species/')) {
+      const slug = path.replace('/api/v2/pokemon-species/', '').replace('/', '');
+      const numericId = Number(slug);
+      const entry = Number.isNaN(numericId) ? entryByName.get(slug) : entryById.get(numericId);
+      if (!entry) {
+        return json(route, {}, 404);
+      }
+
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: entry.name },
+          { language: { name: 'de' }, name: entry.de },
+        ],
+        evolution_chain: {
+          url: `https://pokeapi.co/api/v2/evolution-chain/${entry.idText}/`,
+        },
+      });
+    }
+
+    if (path.startsWith('/api/v2/pokemon/')) {
+      const slug = path.replace('/api/v2/pokemon/', '').replace('/', '');
+      const numericId = Number(slug);
+      const entry = Number.isNaN(numericId) ? entryByName.get(slug) : entryById.get(numericId);
+      if (!entry) {
+        return json(route, {}, 404);
+      }
+
+      return json(route, {
+        id: entry.id,
+        name: entry.name,
+        height: 6,
+        weight: 80,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: entry.sprite },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (path.startsWith('/api/v2/evolution-chain/')) {
+      const id = Number(path.replace('/api/v2/evolution-chain/', '').replace('/', ''));
+      const entry = entryById.get(id);
+      if (!entry) {
+        return json(route, {}, 404);
+      }
+
+      return json(route, {
+        chain: {
+          species: {
+            name: entry.name,
+            url: `https://pokeapi.co/api/v2/pokemon-species/${entry.idText}/`,
+          },
+          evolves_to: [],
+        },
+      });
+    }
+
+    return json(route, {}, 404);
+  });
+}
+
+async function routeTextSearchScrollable(page: Page) {
+  await routeTextSearchWithCount(page, 12);
+}
+
 test('zeigt initialen Such-Hinweis', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Suche starten' })).toBeVisible();
@@ -638,4 +734,102 @@ test('Fehlgeschlagener Evolutionswechsel hält URL und sichtbare Details synchro
   await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pikachu' })).toBeVisible();
   await expect(page).toHaveURL(/#\/pokemon\/25$/);
+});
+
+test('Such-Header wird beim Scrollen kompakt', async ({ page }) => {
+  await routeTextSearchScrollable(page);
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.goto('/');
+
+  await page.getByLabel('Pokemon suchen').fill('pi');
+  await page.getByRole('button', { name: 'Suchen' }).click();
+  await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
+
+  const compactHeader = page.locator('.app__header--compact');
+  await expect(compactHeader).toHaveCount(0);
+
+  await page.evaluate(() => {
+    window.scrollTo(0, 500);
+    window.dispatchEvent(new Event('scroll'));
+  });
+  await expect(compactHeader).toHaveCount(1);
+});
+
+test('Langsames Scrollen bleibt stabil und Clear-Button funktioniert auch im kompakten Header', async ({
+  page,
+}) => {
+  await routeTextSearchScrollable(page);
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.goto('/');
+
+  const searchInput = page.getByLabel('Pokemon suchen');
+  await searchInput.fill('pi');
+  await page.getByRole('button', { name: 'Suchen' }).click();
+  await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
+
+  const compactHeader = page.locator('.app__header--compact');
+  await page.evaluate(() => {
+    window.scrollTo(0, 500);
+  });
+  await expect(compactHeader).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Suche leeren' }).click();
+  await expect(searchInput).toHaveValue('');
+  await expect(page.getByRole('heading', { name: 'Suche starten' })).toBeVisible();
+
+  for (let index = 0; index < 30; index += 1) {
+    await page.evaluate(() => {
+      window.scrollBy(0, -8);
+    });
+    await page.waitForTimeout(25);
+  }
+  await expect.poll(() => compactHeader.count()).toBe(0);
+});
+
+test('Header bleibt nicht im kompakten Zustand haengen, wenn die Liste nach Collapse nicht mehr scrollbar ist', async ({
+  page,
+}) => {
+  await routeTextSearchScrollable(page);
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.goto('/');
+
+  await page.getByLabel('Pokemon suchen').fill('pi');
+  await page.getByRole('button', { name: 'Suchen' }).click();
+  await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
+
+  const compactHeader = page.locator('.app__header--compact');
+  const getScrollableDistance = async () =>
+    page.evaluate(() => {
+      const root = document.scrollingElement ?? document.documentElement;
+      return root.scrollHeight - window.innerHeight;
+    });
+
+  await expect.poll(getScrollableDistance).toBeGreaterThan(0);
+
+  await page.evaluate(() => {
+    window.scrollTo(0, 120);
+    window.dispatchEvent(new Event('scroll'));
+  });
+  await expect(compactHeader).toHaveCount(1);
+
+  await page.evaluate(() => {
+    const list = document.querySelector('.result-list');
+    if (list instanceof HTMLElement) {
+      list.style.maxHeight = '0px';
+      list.style.overflow = 'hidden';
+    }
+    window.dispatchEvent(new Event('resize'));
+  });
+  await expect.poll(getScrollableDistance).toBeLessThanOrEqual(1);
+  await expect(compactHeader).toHaveCount(1);
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 40 }));
+  });
+  await expect(compactHeader).toHaveCount(1);
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
+  });
+  await expect.poll(() => compactHeader.count()).toBe(0);
 });

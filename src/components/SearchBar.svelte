@@ -37,6 +37,16 @@
   function clearQuery() {
     query = '';
   }
+
+  /**
+   * Handles touch/pen interaction early so clear remains reliable during scrolling.
+   *
+   * @param event - Pointer down event on the clear button.
+   */
+  function clearQueryOnPointerDown(event: PointerEvent) {
+    event.preventDefault();
+    clearQuery();
+  }
 </script>
 
 <form class={`search ${compact ? 'search--compact' : ''}`} onsubmit={submit}>
@@ -56,7 +66,13 @@
         aria-describedby={compact ? undefined : 'search-help'}
       />
       {#if query.length > 0}
-        <button class="search__clear" type="button" onclick={clearQuery} aria-label="Suche leeren">
+        <button
+          class="search__clear"
+          type="button"
+          onpointerdown={clearQueryOnPointerDown}
+          onclick={clearQuery}
+          aria-label="Suche leeren"
+        >
           Löschen
         </button>
       {/if}

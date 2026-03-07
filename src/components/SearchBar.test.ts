@@ -30,6 +30,36 @@ describe('SearchBar', () => {
     expect(input.value).toBe('');
   });
 
+  it('clears the input on touch pointer-down for reliable tap interaction', async () => {
+    const onSubmit = vi.fn();
+    render(SearchBar, { query: 'pikachu', submitDisabled: false, onSubmit });
+
+    const input = screen.getByLabelText('Pokemon suchen');
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error('Search input not found');
+    }
+
+    await fireEvent.pointerDown(screen.getByRole('button', { name: 'Suche leeren' }), {
+      pointerType: 'touch',
+    });
+    expect(input.value).toBe('');
+  });
+
+  it('clears the input on mouse pointer-down', async () => {
+    const onSubmit = vi.fn();
+    render(SearchBar, { query: 'pikachu', submitDisabled: false, onSubmit });
+
+    const input = screen.getByLabelText('Pokemon suchen');
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error('Search input not found');
+    }
+
+    await fireEvent.pointerDown(screen.getByRole('button', { name: 'Suche leeren' }), {
+      pointerType: 'mouse',
+    });
+    expect(input.value).toBe('');
+  });
+
   it('disables submit button when submitDisabled prop is true', () => {
     const onSubmit = vi.fn();
     render(SearchBar, { query: '', submitDisabled: true, onSubmit });

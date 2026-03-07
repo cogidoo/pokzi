@@ -8,6 +8,7 @@ The current repo includes:
 - tolerant German-name search for umlaut/ss variants and minor typos
 - live-updating search results below the input
 - touch-friendly result cards with German labels
+- scroll-reactive compact/expanded header behavior in search results view
 - dedicated Pokemon detail pages
 - simple visual evolution chain inside the detail page
 - branch-readable evolution summary with German type chips on evolution items

@@ -51,6 +51,8 @@
   let detail = $state<PokemonDetail | null>(null);
   let openedFromResults = $state(false);
   let detailTransitioning = $state(false);
+  let resultsScrolled = $state(false);
+  let lastResultsScrollY = 0;
 
   let activeDetailAbort: AbortController | null = null;
   let nextDetailRequestToken = 0;
@@ -58,7 +60,10 @@
 
   const DEBOUNCE_MS = 280;
   const HERO_TEXT_PLACEHOLDER = ' ';
-  const COMPACT_SEARCH_STATES: SearchUiState[] = ['success', 'empty', 'error'];
+  const COMPACT_COLLAPSE_SCROLL_Y = 16;
+  const COMPACT_EXPAND_SCROLL_Y = 0;
+  const UPWARD_INTENT_WINDOW_MS = 220;
+  let lastUpwardIntentAt = -Infinity;
 
   /**
    * Formats Pokemon id for readable display labels.
@@ -216,6 +221,66 @@
   }
 
   /**
+   * Applies a stable compact/expanded state based on vertical scroll position.
+   * Uses a small hysteresis so the header does not flicker near the threshold.
+   */
+  function syncResultsScrollState() {
+    const scrollY = Math.max(window.scrollY, 0);
+    const isScrollingDown = scrollY > lastResultsScrollY;
+    const isScrollingUp = scrollY < lastResultsScrollY;
+
+    if (!resultsScrolled && isScrollingDown && scrollY >= COMPACT_COLLAPSE_SCROLL_Y) {
+      resultsScrolled = true;
+    }
+
+    const canExpandAtTop = isSearchResultsPageScrollable() || hasRecentUpwardIntent();
+    if (resultsScrolled && isScrollingUp && scrollY <= COMPACT_EXPAND_SCROLL_Y && canExpandAtTop) {
+      resultsScrolled = false;
+    }
+
+    lastResultsScrollY = scrollY;
+  }
+
+  /**
+   * Expands the compact results header when the user signals upward intent.
+   * This covers edge cases where compact mode removed the remaining scroll range.
+   */
+  function expandFromUpwardIntent() {
+    if (
+      route.kind !== 'search' ||
+      uiState !== 'success' ||
+      results.length === 0 ||
+      !resultsScrolled
+    ) {
+      return;
+    }
+
+    lastUpwardIntentAt = Date.now();
+    if (window.scrollY <= COMPACT_EXPAND_SCROLL_Y || !isSearchResultsPageScrollable()) {
+      resultsScrolled = false;
+    }
+  }
+
+  /**
+   * Checks whether an explicit upward interaction happened recently enough.
+   *
+   * @returns True while upward user intent is still fresh.
+   */
+  function hasRecentUpwardIntent(): boolean {
+    return Date.now() - lastUpwardIntentAt <= UPWARD_INTENT_WINDOW_MS;
+  }
+
+  /**
+   * Checks whether the current search page can still be scrolled vertically.
+   *
+   * @returns True when the page height exceeds the viewport height.
+   */
+  function isSearchResultsPageScrollable(): boolean {
+    const root = document.scrollingElement ?? document.documentElement;
+    return root.scrollHeight - window.innerHeight > 1;
+  }
+
+  /**
    * Opens detail route from search results and keeps return context.
    *
    * @param id - Pokemon id to open.
@@ -354,6 +419,59 @@
   });
 
   $effect(() => {
+    if (route.kind !== 'search' || uiState !== 'success' || results.length === 0) {
+      resultsScrolled = false;
+      lastResultsScrollY = 0;
+      lastUpwardIntentAt = -Infinity;
+      return;
+    }
+
+    lastResultsScrollY = Math.max(window.scrollY, 0);
+    syncResultsScrollState();
+
+    const onScroll = () => {
+      syncResultsScrollState();
+    };
+    const onResize = () => {
+      syncResultsScrollState();
+    };
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY < 0) {
+        expandFromUpwardIntent();
+      }
+    };
+    let lastTouchY = 0;
+    const onTouchStart = (event: TouchEvent) => {
+      const firstTouch = event.touches.item(0);
+      lastTouchY = firstTouch ? firstTouch.clientY : 0;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const firstTouch = event.touches.item(0);
+      if (!firstTouch) {
+        return;
+      }
+      const movingDown = firstTouch.clientY - lastTouchY > 4;
+      if (movingDown) {
+        expandFromUpwardIntent();
+      }
+      lastTouchY = firstTouch.clientY;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+    };
+  });
+
+  $effect(() => {
     const onLocationChange = (event?: PopStateEvent | HashChangeEvent) => {
       const state = event instanceof PopStateEvent ? (event.state as unknown) : null;
       openedFromResults = wasOpenedFromResults(state);
@@ -389,7 +507,7 @@
 
 <main class="app">
   {#if route.kind === 'search'}
-    {@const compactSearch = COMPACT_SEARCH_STATES.includes(uiState)}
+    {@const compactSearch = uiState === 'success' && results.length > 0 && resultsScrolled}
     <section class={`app__search-rail ${compactSearch ? 'app__search-rail--compact' : ''}`}>
       <div class="app__search-shell">
         <header class={`app__header ${compactSearch ? 'app__header--compact' : ''}`}>
