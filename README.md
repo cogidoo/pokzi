@@ -26,6 +26,7 @@ Built to feel easy for children and maintainable for teams.
 - Service-driven API layer (`src/services`) for testability.
 - Strong quality gates (lint, type-check, unit tests, E2E smoke tests).
 - TSDoc/JSDoc enforced for key TypeScript structures.
+- Local specialist skills plus an orchestrator skill for workflow routing and review-until-clean delivery.
 
 ## Quick Start
 
@@ -39,6 +40,7 @@ Built to feel easy for children and maintainable for teams.
 - Architecture and refactor planning docs: `docs/architecture/`
 - Visual/UI direction: `DESIGN_BRIEF.md`
 - Engineering/agent rules: `AGENTS.md`
+- Agent delivery decision: `docs/architecture/2026-03-07-agent-delivery-system-decision.md`
 - High-level framing: `INSTRUCTIONS.md`
 
 ## Developer Notes

@@ -117,6 +117,17 @@ When doing implementation work, default to this structure internally:
 
 Use tighter output only if the user asks for brevity.
 
+## Orchestrated Output Contract
+
+When this skill is used inside an orchestrated workflow, include the shared handoff schema from `AGENTS.md` and add these required fields:
+
+- `patch_plan`
+- `changed_files`
+- `tests_changed`
+- `residual_risks`
+
+Do not start coding before the patch plan is clear enough that QA can review against it later.
+
 ## File And Architecture Rules
 
 - Keep API and transformation logic in `src/services`.

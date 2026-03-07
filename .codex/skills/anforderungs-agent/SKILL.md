@@ -113,6 +113,20 @@ When producing a requirement or concept, default to this structure:
 
 Use tighter output only if the user asks for brevity.
 
+## Orchestrated Output Contract
+
+When this skill is used inside an orchestrated workflow, include the shared handoff schema from `AGENTS.md` and add these required fields:
+
+- `problem`
+- `user_value`
+- `scope_in`
+- `scope_out`
+- `acceptance_criteria`
+- `assumptions`
+- `risks`
+
+Do not hand off vague scope. If execution cannot start safely, make that explicit in `next_step`.
+
 ## File Placement Rules
 
 - Place repo-wide constraints in `docs/repo/current-state.md` or `docs/repo/foundation.md`.

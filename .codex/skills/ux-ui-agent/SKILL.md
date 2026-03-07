@@ -119,6 +119,19 @@ When handling UX/UI work, default to this structure:
 
 Use tighter output only if the user asks for brevity.
 
+## Orchestrated Output Contract
+
+When this skill is used inside an orchestrated workflow, include the shared handoff schema from `AGENTS.md` and add these required fields:
+
+- `affected_views`
+- `affected_states`
+- `ux_risks`
+- `copy_notes`
+- `a11y_notes`
+- `edge_cases`
+
+Do not output aesthetic opinions without observable state, accessibility, or interaction consequences.
+
 ## Design Standards
 
 When proposing interface decisions, always check for:

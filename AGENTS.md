@@ -24,11 +24,13 @@ Execution guide for coding agents working in this repository.
 ## Local Codex Skills
 
 - Local repo skills live under `.codex/skills/`.
+- Use `.codex/skills/orchestrator-agent/SKILL.md` when the user wants routing, workflow selection, review-loop control, standardized handoffs, or one entrypoint coordinating specialist skills.
 - Use `.codex/skills/anforderungs-agent/SKILL.md` when the user asks for requirement intake, scope review, concept writing, acceptance criteria, user flows, or translating vague stakeholder input into a repo-ready concept.
 - Use `.codex/skills/umsetzungs-agent/SKILL.md` when the user asks for implementation, bugfixing, refactoring, hardening, code review, or senior delivery of scoped work in this repository.
 - Use `.codex/skills/ux-ui-agent/SKILL.md` when the user asks for UX/UI direction, visual concepting, accessibility-focused design review, child-friendly interaction design, screen-level refinement, or implementation-ready interface guidance.
 - Use `.codex/skills/software-architekt-agent/SKILL.md` when the user asks for architecture review, technical structure, module boundaries, state/service design, refactor planning, or pragmatic software architecture guidance in this repository.
 - Use `.codex/skills/qa-agent/SKILL.md` when the user asks for QA review, test strategy, requirement validation from a quality perspective, regression-risk analysis, accessibility QA, release-readiness review, or child-friendly/mobile-first quality assessment in this repository.
+- The trigger phrases `orchestrator-agent`, `delivery orchestrator`, `workflow orchestrator`, and `review until clean` should explicitly activate that local skill for this repository.
 - The trigger phrases `anforderungs-agent` and `requirements lead` should explicitly activate that local skill for this repository.
 - The trigger phrases `umsetzungs-agent`, `implementierungs-agent`, and `implementation lead` should explicitly activate that local skill for this repository.
 - The trigger phrases `ux-ui-agent`, `design-agent`, `ui-agent`, and `ux-agent` should explicitly activate that local skill for this repository.
@@ -60,6 +62,117 @@ Execution guide for coding agents working in this repository.
 - All UI copy is German.
 - Pokemon type chips are rendered with German type labels.
 
+## Delivery System
+
+The repository uses one shared delivery operating system:
+
+1. `AGENTS.md` defines the constitution and default operating rules.
+2. `orchestrator-agent` is the required routing layer for multi-stage work.
+3. Specialist skills provide domain depth, not overall task governance.
+4. Every multi-stage task must map to one of the standard workflows below.
+
+### Standard Workflow Types
+
+- `bugfix`
+- `refactor`
+- `feature`
+- `maintenance`
+- `audit`
+- `requirement-intake`
+
+### Workflow Routing Rules
+
+- `bugfix`: default `implementation -> qa`; add `requirements`, `architecture`, or `ux-ui` only when the defect demands it.
+- `refactor`: default `requirements -> architecture -> implementation -> qa`; requirements stay mandatory so invariants are explicit.
+- `feature`: default `requirements -> implementation -> qa`; add `ux-ui` for UI/copy/a11y work and `architecture` for structural decisions.
+- `maintenance`: default `implementation -> qa`; keep overhead low unless structural impact exists.
+- `audit`: default `requirements -> architecture/ux-ui/qa`; analysis only unless the user explicitly asks for follow-up delivery.
+- `requirement-intake`: `requirements -> feature workflow`; no implementation before the intake result is execution-ready.
+
+### Shared Handoff Schema
+
+Every orchestrated handoff must use the shared template in `.codex/skills/orchestrator-agent/templates/handoff-template.md`.
+
+Required keys:
+
+- `task_type`
+- `goal`
+- `scope_in`
+- `scope_out`
+- `constraints`
+- `assumptions`
+- `risks`
+- `acceptance_criteria`
+- `affected_surfaces`
+- `findings`
+- `evidence`
+- `patch_plan`
+- `changed_files`
+- `tests`
+- `severity`
+- `review_status`
+- `next_step`
+
+### Role-Specific Required Outputs
+
+- Requirements: `problem`, `user_value`, `scope_in`, `scope_out`, `acceptance_criteria`, `assumptions`, `risks`
+- UX/UI: `affected_views`, `affected_states`, `ux_risks`, `copy_notes`, `a11y_notes`, `edge_cases`
+- Architecture: `technical_decision`, `alternatives`, `tradeoffs`, `affected_modules`, `migration_impact`, `test_impact`
+- Implementation: `patch_plan`, `changed_files`, `tests_changed`, `residual_risks`
+- QA: `findings`, `severity`, `repro_or_rationale`, `missing_tests`, `review_status`
+
+### Review Standard
+
+- QA findings must be reported with `severity`, `evidence` or rationale, and a concrete next step.
+- `blocker` and `high` findings must be fixed before completion.
+- `medium` findings must be fixed or explicitly accepted in the final handoff.
+- `low` findings may remain only as documented residual risk.
+- Default review focus order: correctness, regression risk, test gaps, accessibility, performance, maintainability, documentation drift.
+
+### Review Loop Rule
+
+Use the explicit loop for `feature`, `refactor`, and non-trivial `bugfix` work:
+
+1. implement
+2. QA review
+3. fix findings
+4. QA re-review
+5. repeat until clean
+
+Rules:
+
+- maximum automatic iterations: `3`
+- unresolved `blocker` or `high` findings after iteration `3` => task status `unresolved`
+- audits do not auto-convert into implementation; they must spawn a follow-up workflow intentionally
+
+### Workflow-Specific Definition Of Done
+
+- `bugfix`: bug understood, fix implemented, relevant tests green, no open `blocker`/`high`, medium findings resolved or accepted explicitly
+- `refactor`: target structure reached, intended behavior preserved, tests updated for invariants, no open relevant findings
+- `feature`: acceptance criteria satisfied, required UX/a11y/architecture concerns addressed, tests added, no open `blocker`/`high`
+- `maintenance`: maintenance objective reached, required docs/tests aligned, no regression-relevant open findings
+- `audit`: scope assessed, prioritized findings documented with evidence and recommendations, no hidden implementation mixed in
+- `requirement-intake`: implementation-ready brief produced with explicit scope, acceptance criteria, assumptions, and risks
+
+### Handoff Format
+
+Every final handoff must state:
+
+- workflow used
+- what was done
+- what was intentionally not done
+- tests run and exact outcomes
+- remaining risks or accepted findings
+- whether merge/release is recommended
+
+## Quality Overlays
+
+Treat these as mandatory overlays, not optional afterthoughts:
+
+- Accessibility: review on every UI-affecting task; issues blocking independent use are at least `high`.
+- Security: review on dependency changes, API/client changes, input handling, routing, config, or generated artifacts.
+- Performance: review on search behavior, data-fetching, rendering, caching, list/detail transitions, and bundle/tooling changes.
+
 ## Engineering Rules
 
 1. Keep implementation simple and testable.
@@ -71,6 +184,18 @@ Execution guide for coding agents working in this repository.
 7. Enforce one formatting standard via Prettier.
 8. Do not introduce lint bypasses (`eslint-disable`, `@ts-ignore`, `@ts-expect-error`) unless explicitly approved.
 9. Keep exported and core internal TypeScript constructs documented with TSDoc.
+
+## Build And Verification Commands
+
+- Development: `npm run dev`
+- Production build: `npm run build`
+- GitHub Pages build: `npm run build:pages`
+- Preview build: `npm run preview`
+- Lint: `npm run lint`
+- Format check: `npm run format:check`
+- Type and Svelte checks: `npm run check`
+- Unit/integration tests: `npm test`
+- E2E smoke tests: `npm run test:e2e`
 
 ## Git and Commit Rules
 
@@ -107,16 +232,18 @@ Execution guide for coding agents working in this repository.
 
 ## Agent Workflow
 
-1. Read `CONCEPT.md` and the relevant files in `docs/repo/` before behavior edits.
-2. Read `docs/architecture/*` when planning or changing technical structure.
-3. Read `DESIGN_BRIEF.md` before visual edits.
-4. For every new feature, review all repository Markdown files and update every impacted document.
-5. Implement smallest safe change.
-6. Add/update TSDoc comments for changed TypeScript behavior (English, concise, junior-friendly).
-7. Run `npm run lint` and `npm run format:check` before handoff.
-8. Run `npm run check` and `npm test` before handoff.
-9. Run `npm run test:e2e` before handoff when E2E setup exists.
-10. Report what changed and why, with file links.
+1. Read `AGENTS.md` first for workflow and completion rules.
+2. Read `CONCEPT.md` and the relevant files in `docs/repo/` before behavior edits.
+3. Read `docs/architecture/*` when planning or changing technical structure.
+4. Read `DESIGN_BRIEF.md` before visual edits.
+5. Classify the task into one workflow type and choose the minimal safe specialist path.
+6. For every new feature, review all repository Markdown files and update every impacted document.
+7. Implement the smallest safe change or produce the correct non-implementation artifact for the workflow.
+8. Add/update TSDoc comments for changed TypeScript behavior (English, concise, junior-friendly).
+9. Run `npm run lint` and `npm run format:check` before handoff.
+10. Run `npm run check` and `npm test` before handoff.
+11. Run `npm run test:e2e` before handoff when E2E setup exists.
+12. Report what changed and why, with file links and the required handoff format.
 
 ## Handoff Checklist
 

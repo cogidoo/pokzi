@@ -121,6 +121,25 @@ When doing QA work, default to this structure:
 
 Use tighter output only if the user asks for brevity.
 
+## Orchestrated Output Contract
+
+When this skill is used inside an orchestrated workflow, include the shared handoff schema from `AGENTS.md` and add these required fields:
+
+- `findings`
+- `severity`
+- `repro_or_rationale`
+- `missing_tests`
+- `review_status`
+
+Use the repository severity model:
+
+- `blocker`
+- `high`
+- `medium`
+- `low`
+
+Never approve with unresolved `blocker` or `high` findings.
+
 ## QA Review Heuristics
 
 When reviewing requirements or implementation, always check for:

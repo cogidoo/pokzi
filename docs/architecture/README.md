@@ -13,6 +13,7 @@ Store documents such as:
 - refactor plans
 - architecture reviews
 - technical decision records
+- delivery-system and workflow-governance decisions
 - module-boundary proposals
 - migration plans for structural cleanup
 - scaling notes for approved complexity increases

@@ -126,6 +126,19 @@ When doing architecture work, default to this structure:
 
 Use tighter output only if the user asks for brevity.
 
+## Orchestrated Output Contract
+
+When this skill is used inside an orchestrated workflow, include the shared handoff schema from `AGENTS.md` and add these required fields:
+
+- `technical_decision`
+- `alternatives`
+- `tradeoffs`
+- `affected_modules`
+- `migration_impact`
+- `test_impact`
+
+If architecture involvement is unnecessary, say so explicitly and return the task to the orchestrator instead of inventing complexity.
+
 ## Output Contract
 
 Document architecture output in `docs/architecture/` when it should guide work beyond the immediate reply.
