@@ -2156,4 +2156,83 @@ describe('searchPokemon (German names)', () => {
     expect(pokemon25Calls).toBe(1);
     expect(chainCalls).toBe(1);
   });
+
+  it('reuses cached evolution items across different detail ids in the same chain', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
+      }
+
+      if (url.endsWith('/pokemon/26')) {
+        return Promise.resolve(asResponse(makePokemon(26, 'raichu')));
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu', 10)));
+      }
+
+      if (url.endsWith('/pokemon-species/26')) {
+        return Promise.resolve(asResponse(speciesNames('Raichu', 10)));
+      }
+
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'pichu', url: 'https://pokeapi.co/api/v2/pokemon-species/172/' },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'pikachu',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/25/',
+                  },
+                  evolves_to: [
+                    {
+                      species: {
+                        name: 'raichu',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/26/',
+                      },
+                      evolves_to: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/172')) {
+        return Promise.resolve(asResponse(speciesNames('Pichu')));
+      }
+
+      if (url.endsWith('/pokemon/pichu')) {
+        return Promise.resolve(asResponse(makePokemon(172, 'pichu')));
+      }
+
+      if (url.endsWith('/pokemon/pikachu')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
+      }
+
+      if (url.endsWith('/pokemon/raichu')) {
+        return Promise.resolve(asResponse(makePokemon(26, 'raichu')));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const first = await fetchPokemonDetail(25);
+    const second = await fetchPokemonDetail(26);
+
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+
+    const pichuCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon/pichu')).length;
+    expect(pichuCalls).toBe(1);
+  });
 });

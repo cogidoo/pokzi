@@ -1,7 +1,7 @@
-Status: in-progress
+Status: implemented
 Created: 2026-03-07
 Updated: 2026-03-07
-Implemented on:
+Implemented on: 2026-03-07
 Superseded by:
 
 # Architecture Review: Top 3 Structural Risks
@@ -210,12 +210,15 @@ Prioritize the three largest structural risks in the current repo and define a c
 
 - Phase 1 (routing and search orchestration decoupling) was implemented on 2026-03-07.
 - Phase 2 (service split with search-index and transport module separation) was implemented on 2026-03-07.
+- Phase 3 (test architecture split by module boundary and contract/integration intent) was implemented on 2026-03-07.
 - Implemented concretely:
   - hash-routing utilities in `src/features/navigation/hashRouter.ts`
   - search orchestration in `src/features/search/searchController.ts`
   - transport and error mapping in `src/services/http/pokeApiClient.ts`
   - search index/tolerance matching in `src/services/search/germanNameSearch.ts`
   - concurrent async helper in `src/services/utils/async.ts`
+  - dedicated contract tests for router, search controller, transport client, search engine, and async utility modules
+  - dedicated integration test naming for facade-level service behavior (`pokemonApi.integration.test.ts`)
   - integration in `src/App.svelte` and `src/services/pokemonApi.ts` with unchanged behavior
 - Verification for the implemented part:
   - `npm run lint` successful

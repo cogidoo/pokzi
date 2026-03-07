@@ -148,4 +148,21 @@ describe('createGermanNameSearchIndex', () => {
 
     await expect(index.findGermanMatches('pik')).resolves.toEqual([]);
   });
+
+  it('skips tolerant candidates when length gap exceeds max distance', async () => {
+    const index = createGermanNameSearchIndex(
+      {
+        fetchSpeciesIndex: () => Promise.resolve(species([1])),
+        fetchGermanIndexItem: () => Promise.resolve(entry(1, 'abc')),
+      },
+      {
+        searchResultLimit: 20,
+        indexRequestConcurrency: 4,
+        indexScanBatchSize: 20,
+        maxBatchesAfterExactMatch: 2,
+      },
+    );
+
+    await expect(index.findGermanMatches('abcdefghij')).resolves.toEqual([]);
+  });
 });

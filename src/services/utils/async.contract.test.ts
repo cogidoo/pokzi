@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { mapWithConcurrency, throwIfAborted } from './async';
 
 describe('throwIfAborted', () => {
+  it('does nothing when no signal is provided', () => {
+    expect(() => {
+      throwIfAborted();
+    }).not.toThrow();
+  });
+
   it('does nothing when signal is not aborted', () => {
     const controller = new AbortController();
     expect(() => {
@@ -16,6 +22,23 @@ describe('throwIfAborted', () => {
     expect(() => {
       throwIfAborted(controller.signal);
     }).toThrow();
+  });
+
+  it('throws the original signal reason when present', () => {
+    const reason = new Error('custom-reason');
+    const signal = { aborted: true, reason } as unknown as AbortSignal;
+
+    expect(() => {
+      throwIfAborted(signal);
+    }).toThrow(reason);
+  });
+
+  it('falls back to AbortError when reason is missing', () => {
+    const signal = { aborted: true, reason: undefined } as unknown as AbortSignal;
+
+    expect(() => {
+      throwIfAborted(signal);
+    }).toThrow(/Aborted/);
   });
 });
 
