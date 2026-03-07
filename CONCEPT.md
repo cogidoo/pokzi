@@ -14,6 +14,7 @@ Pokzi uses structured repo documentation for behavior, scope, and feature concep
 ## Documentation Rules
 
 - Keep repo behavior in `docs/repo/*`.
+- Keep internal architecture and refactor planning in `docs/architecture/*`.
 - Keep visual/UI direction in `DESIGN_BRIEF.md`.
 - Keep technical and workflow guidance in `INSTRUCTIONS.md` and `AGENTS.md`.
 - If behavior changes, update the relevant file in `docs/repo/` first.
@@ -39,3 +40,4 @@ The current repo foundation centers on:
 - Repo foundation: `docs/repo/foundation.md`
 - Current repo definition: `docs/repo/current-state.md`
 - Feature concepts: `docs/repo/features/`
+- Architecture and refactor planning docs: `docs/architecture/`

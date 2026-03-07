@@ -12,9 +12,11 @@ Execution guide for coding agents working in this repository.
 
 - `CONCEPT.md` is the repo-doc overview.
 - `docs/repo/*` is the source of truth for repo behavior and scope.
+- `docs/architecture/*` stores internal architecture outputs such as refactor plans, architecture reviews, and technical decision records.
 - `DESIGN_BRIEF.md` is the single source of truth for visual/UI direction.
 - `INSTRUCTIONS.md` stays high-level and must not duplicate detailed behavior logic.
 - If behavior changes, update the relevant file in `docs/repo/` first, then align implementation.
+- If technical structure changes or needs planning without changing behavior, document it in `docs/architecture/`.
 - Every new feature must include a full Markdown documentation review. Update every impacted `.md` file in the repository, not only the primary feature document.
 - Developer-facing code documentation uses TSDoc/JSDoc blocks in English.
 
@@ -24,9 +26,11 @@ Execution guide for coding agents working in this repository.
 - Use `.codex/skills/anforderungs-agent/SKILL.md` when the user asks for requirement intake, scope review, concept writing, acceptance criteria, user flows, or translating vague stakeholder input into a repo-ready concept.
 - Use `.codex/skills/umsetzungs-agent/SKILL.md` when the user asks for implementation, bugfixing, refactoring, hardening, code review, or senior delivery of scoped work in this repository.
 - Use `.codex/skills/ux-ui-agent/SKILL.md` when the user asks for UX/UI direction, visual concepting, accessibility-focused design review, child-friendly interaction design, screen-level refinement, or implementation-ready interface guidance.
+- Use `.codex/skills/software-architekt-agent/SKILL.md` when the user asks for architecture review, technical structure, module boundaries, state/service design, refactor planning, or pragmatic software architecture guidance in this repository.
 - The trigger phrases `anforderungs-agent` and `requirements lead` should explicitly activate that local skill for this repository.
 - The trigger phrases `umsetzungs-agent`, `implementierungs-agent`, and `implementation lead` should explicitly activate that local skill for this repository.
 - The trigger phrases `ux-ui-agent`, `design-agent`, `ui-agent`, and `ux-agent` should explicitly activate that local skill for this repository.
+- The trigger phrases `software-architekt-agent`, `architektur-agent`, `software architect`, and `architecture lead` should explicitly activate that local skill for this repository.
 
 ## Repository Map
 
@@ -100,14 +104,15 @@ Execution guide for coding agents working in this repository.
 ## Agent Workflow
 
 1. Read `CONCEPT.md` and the relevant files in `docs/repo/` before behavior edits.
-2. Read `DESIGN_BRIEF.md` before visual edits.
-3. For every new feature, review all repository Markdown files and update every impacted document.
-4. Implement smallest safe change.
-5. Add/update TSDoc comments for changed TypeScript behavior (English, concise, junior-friendly).
-6. Run `npm run lint` and `npm run format:check` before handoff.
-7. Run `npm run check` and `npm test` before handoff.
-8. Run `npm run test:e2e` before handoff when E2E setup exists.
-9. Report what changed and why, with file links.
+2. Read `docs/architecture/*` when planning or changing technical structure.
+3. Read `DESIGN_BRIEF.md` before visual edits.
+4. For every new feature, review all repository Markdown files and update every impacted document.
+5. Implement smallest safe change.
+6. Add/update TSDoc comments for changed TypeScript behavior (English, concise, junior-friendly).
+7. Run `npm run lint` and `npm run format:check` before handoff.
+8. Run `npm run check` and `npm test` before handoff.
+9. Run `npm run test:e2e` before handoff when E2E setup exists.
+10. Report what changed and why, with file links.
 
 ## Handoff Checklist
 

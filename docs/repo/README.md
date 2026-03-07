@@ -4,6 +4,8 @@
 
 This directory contains the repo documentation for Pokzi.
 
+It defines product behavior and scope, not internal architecture planning.
+
 ## Read Order
 
 1. `foundation.md`
@@ -57,6 +59,7 @@ Current feature documents:
 - Update the relevant file in this directory before implementation.
 - For every new feature, review all repository Markdown files and update every impacted document.
 - Keep behavior decisions here, not in `INSTRUCTIONS.md`.
+- Keep refactor plans, architecture reviews, and technical decisions in `docs/architecture/`, not in this directory.
 - Keep visual direction in `DESIGN_BRIEF.md`.
 - Keep code and workflow rules in `AGENTS.md`.
 - Use separate feature files for feature-specific repo decisions.

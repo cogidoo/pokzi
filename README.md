@@ -36,6 +36,7 @@ Built to feel easy for children and maintainable for teams.
 
 - Repo docs overview: `CONCEPT.md`
 - Structured repo docs: `docs/repo/`
+- Architecture and refactor planning docs: `docs/architecture/`
 - Visual/UI direction: `DESIGN_BRIEF.md`
 - Engineering/agent rules: `AGENTS.md`
 - High-level framing: `INSTRUCTIONS.md`
