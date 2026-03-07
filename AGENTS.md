@@ -65,6 +65,14 @@ Execution guide for coding agents working in this repository.
 8. Do not introduce lint bypasses (`eslint-disable`, `@ts-ignore`, `@ts-expect-error`) unless explicitly approved.
 9. Keep exported and core internal TypeScript constructs documented with TSDoc.
 
+## Git and Commit Rules
+
+1. Make small, traceable commits with one logical change per commit.
+2. Use clear, descriptive commit messages that explain what changed and why.
+3. Separate cleanup/refactor commits from behavior changes whenever possible.
+4. Do not commit generated artifacts (`coverage/`, `dist/`, `playwright-report/`, `test-results/`).
+5. Before handoff, verify the staged diff only contains intended files.
+
 ## Testing Rules
 
 - Maintain strong automated tests for service + UI behavior.

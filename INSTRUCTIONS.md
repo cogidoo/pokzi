@@ -47,6 +47,10 @@ Do not duplicate detailed behavior rules in this file.
   - `npm run check`
   - `npm test`
   - `npm run test:e2e` (when E2E environment is available)
+- Commit discipline:
+  - keep commits small and focused
+  - use descriptive commit messages
+  - avoid committing generated output artifacts (coverage, build, reports)
 
 ## Data Source
 
