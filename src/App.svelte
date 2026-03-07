@@ -2,6 +2,15 @@
   import SearchBar from './components/SearchBar.svelte';
   import ResultCard from './components/ResultCard.svelte';
   import StatusState from './components/StatusState.svelte';
+  import {
+    detailHash,
+    parseRoute,
+    searchUrl,
+    wasOpenedFromResults,
+    type AppRoute,
+    type DetailHistoryState,
+  } from './features/navigation/hashRouter';
+  import { SearchController, type SearchUiState } from './features/search/searchController';
   import { fetchPokemonDetail, isSearchPokemonError, searchPokemon } from './services/pokemonApi';
   import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
 
@@ -11,25 +20,9 @@
    */
 
   /**
-   * UI states for the search view.
-   */
-  type SearchUiState = 'idle' | 'invalid' | 'loading' | 'success' | 'empty' | 'error';
-  /**
    * UI states for the detail view.
    */
   type DetailUiState = 'loading' | 'success' | 'empty' | 'error';
-  /**
-   * Minimal route model used by the app.
-   */
-  type AppRoute = { kind: 'search' } | { kind: 'detail'; id: number };
-  /**
-   * Browser history marker for detail pages opened from search results.
-   */
-  interface DetailHistoryState {
-    source: 'results';
-  }
-  const SEARCH_HASH = '#/';
-  const DETAIL_HASH_PATTERN = /^#\/pokemon\/(\d+)\/?$/;
 
   let query = $state('');
   let uiState = $state<SearchUiState>('idle');
@@ -43,55 +36,13 @@
   let openedFromResults = $state(false);
   let detailTransitioning = $state(false);
 
-  let debounceHandle: ReturnType<typeof setTimeout> | undefined;
-  let activeAbort: AbortController | null = null;
   let activeDetailAbort: AbortController | null = null;
-  let nextRequestToken = 0;
   let nextDetailRequestToken = 0;
   let lastDetailRouteId: number | null = null;
 
   const DEBOUNCE_MS = 280;
   const HERO_TEXT_PLACEHOLDER = ' ';
   const COMPACT_SEARCH_STATES: SearchUiState[] = ['success', 'empty', 'error'];
-
-  /**
-   * Parses current URL hash into the app-level route model.
-   *
-   * @param hash - Browser location hash string.
-   * @returns Parsed route with search fallback.
-   */
-  function parseRoute(hash: string): AppRoute {
-    const match = DETAIL_HASH_PATTERN.exec(hash);
-    if (!match) {
-      return { kind: 'search' };
-    }
-
-    const id = Number(match[1]);
-    if (!Number.isFinite(id) || id < 1) {
-      return { kind: 'search' };
-    }
-
-    return { kind: 'detail', id };
-  }
-
-  /**
-   * Creates hash URL for a detail route.
-   *
-   * @param id - Pokemon id to open.
-   * @returns Hash-only route URL.
-   */
-  function detailHash(id: number): string {
-    return `#/pokemon/${String(id)}`;
-  }
-
-  /**
-   * Builds the root search hash URL.
-   *
-   * @returns Search URL for pushState.
-   */
-  function searchUrl(): string {
-    return SEARCH_HASH;
-  }
 
   /**
    * Formats Pokemon id for readable display labels.
@@ -125,45 +76,6 @@
    */
   function hasEvolutionRelations(pokemon: PokemonDetail): boolean {
     return pokemon.evolution.previous.length > 0 || pokemon.evolution.next.length > 0;
-  }
-
-  /**
-   * Classifies search input for UI state handling.
-   *
-   * @param raw - Current value from the search input.
-   * @returns Whether the input is empty, invalid, or valid.
-   */
-  function classifyQuery(raw: string): 'empty' | 'invalid' | 'valid' {
-    const value = raw.trim();
-    if (!value) {
-      return 'empty';
-    }
-
-    if (/^\d+$/.test(value)) {
-      return 'valid';
-    }
-
-    return value.length >= 2 ? 'valid' : 'invalid';
-  }
-
-  /**
-   * Determines whether all visible search results come from tolerant matching.
-   *
-   * @param entries - Current visible search results.
-   * @returns True when every result is a tolerant fallback.
-   */
-  function isTolerantOnlyResultSet(entries: PokemonSearchResult[]): boolean {
-    return entries.length > 0 && entries.every((entry) => entry.matchQuality === 'tolerant');
-  }
-
-  /**
-   * Aborts the currently active request if one exists.
-   */
-  function cancelInFlight() {
-    if (activeAbort) {
-      activeAbort.abort();
-      activeAbort = null;
-    }
   }
 
   /**
@@ -216,78 +128,41 @@
     return 'Die Pokemon-Details konnten gerade nicht geladen werden. Bitte versuche es erneut.';
   }
 
-  /**
-   * Runs a search and synchronizes all UI states.
-   *
-   * @param rawQuery - Optional query string; defaults to current query state.
-   */
-  async function performSearch(rawQuery: string = query) {
-    const normalized = rawQuery.trim();
-    const queryState = classifyQuery(normalized);
-    const requestToken = ++nextRequestToken;
-
-    cancelInFlight();
-
-    if (queryState === 'empty') {
-      uiState = 'idle';
-      errorMessage = '';
-      results = [];
-      showTolerantHint = false;
-      return;
-    }
-
-    if (queryState === 'invalid') {
-      uiState = 'invalid';
-      errorMessage = '';
-      results = [];
-      showTolerantHint = false;
-      return;
-    }
-
-    const requestAbort = new AbortController();
-    activeAbort = requestAbort;
-    uiState = 'loading';
-    errorMessage = '';
-
-    try {
-      const found = await searchPokemon(normalized, requestAbort.signal);
-
-      if (requestToken !== nextRequestToken) {
-        return;
-      }
-
-      results = found;
-      uiState = found.length > 0 ? 'success' : 'empty';
-      showTolerantHint = isTolerantOnlyResultSet(found);
-    } catch (error) {
-      if (requestToken !== nextRequestToken) {
-        return;
-      }
-
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return;
-      }
-
-      results = [];
-      errorMessage = toErrorMessage(error);
-      uiState = 'error';
-      showTolerantHint = false;
-    }
-  }
+  const searchController = new SearchController(
+    {
+      getQuery: () => query,
+      setUiState: (state) => {
+        uiState = state;
+      },
+      setErrorMessage: (message) => {
+        errorMessage = message;
+      },
+      setResults: (nextResults) => {
+        results = nextResults;
+      },
+      setShowTolerantHint: (visible) => {
+        showTolerantHint = visible;
+      },
+    },
+    {
+      searchPokemon,
+      toErrorMessage,
+    },
+    DEBOUNCE_MS,
+  );
 
   /**
    * Starts an immediate search from manual form submit.
    */
   function onManualSubmit() {
-    clearTimeout(debounceHandle);
-    void performSearch(query);
+    searchController.onManualSubmit();
   }
 
   /**
    * Retries search with the current query state.
    */
   function retrySearch() {
-    void performSearch(query);
+    searchController.retrySearch();
   }
 
   /**
@@ -410,35 +285,20 @@
     }
   }
 
-  /**
-   * Schedules a debounced search for smoother typing.
-   *
-   * @param currentQuery - Query value captured when scheduling.
-   */
-  function scheduleDebouncedSearch(currentQuery: string) {
-    clearTimeout(debounceHandle);
-
-    debounceHandle = setTimeout(() => {
-      void performSearch(currentQuery);
-    }, DEBOUNCE_MS);
-  }
+  $effect(() => {
+    searchController.scheduleDebouncedSearch(query);
+  });
 
   $effect(() => {
-    scheduleDebouncedSearch(query);
-
     return () => {
-      clearTimeout(debounceHandle);
-      debounceHandle = undefined;
+      searchController.dispose();
     };
   });
 
   $effect(() => {
     const onLocationChange = (event?: PopStateEvent | HashChangeEvent) => {
-      const state =
-        event instanceof PopStateEvent
-          ? ((event.state ?? null) as { source?: unknown } | null)
-          : null;
-      openedFromResults = state?.source === 'results';
+      const state = event instanceof PopStateEvent ? (event.state as unknown) : null;
+      openedFromResults = wasOpenedFromResults(state);
       route = parseRoute(window.location.hash);
     };
 

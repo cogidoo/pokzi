@@ -1,4 +1,4 @@
-Status: proposed
+Status: in-progress
 Created: 2026-03-07
 Updated: 2026-03-07
 Implemented on:
@@ -205,3 +205,17 @@ Prioritize the three largest structural risks in the current repo and define a c
 
 - This review documents the technical direction in `docs/architecture/`.
 - No change to user-visible behavior, so no `docs/repo/*` update is required.
+
+## Progress update
+
+- Phase 1 (routing and search orchestration decoupling) was implemented on 2026-03-07.
+- Implemented concretely:
+  - hash-routing utilities in `src/features/navigation/hashRouter.ts`
+  - search orchestration in `src/features/search/searchController.ts`
+  - integration in `src/App.svelte` with unchanged behavior
+- Verification for the implemented part:
+  - `npm run lint` successful
+  - `npm run format:check` successful
+  - `npm run check` successful
+  - `npm test` successful
+  - `npm run test:e2e` successful
