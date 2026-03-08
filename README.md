@@ -58,3 +58,7 @@ Built to feel easy for children and maintainable for teams.
 - `npm run test:e2e`
 - `npm run index:de:check`
 - `npm run index:de:update`
+
+CI note:
+
+- `.github/workflows/quality.yml` enforces the DE index drift check on pull requests and pushes to `main`.
