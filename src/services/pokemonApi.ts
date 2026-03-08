@@ -45,6 +45,10 @@ interface PokemonResponse {
   name: string;
   height: number;
   weight: number;
+  stats?: {
+    base_stat: number;
+    stat: { name: string };
+  }[];
   sprites?: {
     other?: {
       'official-artwork'?: {
@@ -326,6 +330,21 @@ function getGermanFlavorText(species: PokemonSpeciesResponse | null): string | n
 }
 
 /**
+ * Reads the base HP stat from a Pokemon payload.
+ *
+ * @param pokemon - Pokemon API payload.
+ * @returns Base HP or `null` when unavailable.
+ */
+function getBaseHpStat(pokemon: PokemonResponse): number | null {
+  const hp = pokemon.stats?.find((entry) => entry.stat.name === 'hp');
+  if (!hp) {
+    return null;
+  }
+
+  return Number.isFinite(hp.base_stat) ? hp.base_stat : null;
+}
+
+/**
  * Traverses the evolution tree and returns depth of a target Pokemon.
  *
  * @param node - Current evolution tree node.
@@ -493,11 +512,13 @@ async function resolveEvolutionItem(
     pokemon?.sprites?.other?.['official-artwork']?.front_default ??
     pokemon?.sprites?.front_default ??
     null;
+  const baseHp = pokemon ? getBaseHpStat(pokemon) : null;
 
   const item = {
     id: speciesId,
     displayName,
     image,
+    ...(baseHp !== null ? { baseHp } : {}),
     types: (pokemon?.types ?? [])
       .map((entry) => ({ name: TYPE_NAME_DE[entry.type.name] ?? entry.type.name }))
       .slice(0, 2),
@@ -754,6 +775,7 @@ export async function fetchPokemonDetail(
       types: data.types.map((entry) => ({
         name: TYPE_NAME_DE[entry.type.name] ?? entry.type.name,
       })),
+      baseHp: getBaseHpStat(data),
       heightMeters: data.height / 10,
       weightKilograms: data.weight / 10,
       category: getGermanCategory(species),

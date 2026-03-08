@@ -17,7 +17,7 @@ Built to feel easy for children and maintainable for teams.
 - Child-friendly search flow with immediate feedback.
 - Large, easy-to-tap controls for tablet use.
 - German UI text throughout.
-- Dedicated detail page with key facts, a short description in the hero, and a stage-based evolution board with readable branching.
+- Dedicated detail page with prominent `KP` (from API stats) near the name, clear key facts, and a stage-based evolution board where evolution tiles also show `KP` when available.
 - Clear messages for loading, no results, and errors.
 
 ## For Developers

@@ -86,6 +86,16 @@
   }
 
   /**
+   * Checks whether a base HP value is present.
+   *
+   * @param baseHp - Optional base HP value from API payload.
+   * @returns True when the value is available.
+   */
+  function hasBaseHp(baseHp: number | null | undefined): baseHp is number {
+    return baseHp !== null && baseHp !== undefined;
+  }
+
+  /**
    * Checks whether detail data contains visible evolution relations.
    *
    * @param pokemon - Detail payload shown in the detail view.
@@ -579,6 +589,7 @@
             <div class="detail-skeleton__fact shimmer"></div>
             <div class="detail-skeleton__fact shimmer"></div>
             <div class="detail-skeleton__fact shimmer"></div>
+            <div class="detail-skeleton__fact shimmer"></div>
           </div>
         </section>
       {:else if detailUiState === 'error'}
@@ -614,7 +625,16 @@
             <div class="detail__hero-meta">
               <div class="detail__identity">
                 <p class="detail__id">{formatId(detail.id)}</p>
-                <h1 class="detail__name">{detail.displayName}</h1>
+                <div class="detail__name-row">
+                  <h1 class="detail__name">{detail.displayName}</h1>
+                  <span
+                    class="detail__kp"
+                    hidden={!hasBaseHp(detail.baseHp)}
+                    aria-hidden={!hasBaseHp(detail.baseHp)}
+                    aria-label={hasBaseHp(detail.baseHp) ? `KP ${String(detail.baseHp)}` : ''}
+                    >{hasBaseHp(detail.baseHp) ? `KP ${String(detail.baseHp)}` : ''}</span
+                  >
+                </div>
               </div>
               <div class="detail__hero-support">
                 <p class="meta-chip meta-chip--stage meta-chip--detail">
@@ -659,6 +679,12 @@
           <section class="detail__section detail__section--facts" aria-label="Wichtige Fakten">
             <h2 class="detail__section-title">Wichtige Fakten</h2>
             <div class="detail__facts">
+              {#if detail.baseHp !== null && detail.baseHp !== undefined}
+                <article class="detail-fact">
+                  <p class="detail-fact__label">KP</p>
+                  <p class="detail-fact__value">{detail.baseHp}</p>
+                </article>
+              {/if}
               <article class="detail-fact">
                 <p class="detail-fact__label">Größe</p>
                 <p class="detail-fact__value">{formatMetric(detail.heightMeters)} m</p>

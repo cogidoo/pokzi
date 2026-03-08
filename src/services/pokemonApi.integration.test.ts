@@ -1205,6 +1205,7 @@ describe('searchPokemon (German names)', () => {
             name: 'pikachu',
             height: 4,
             weight: 60,
+            stats: [{ base_stat: 35, stat: { name: 'hp' } }],
             sprites: {
               other: {
                 'official-artwork': {
@@ -1213,6 +1214,15 @@ describe('searchPokemon (German names)', () => {
               },
             },
             types: [{ type: { name: 'electric' } }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon/pikachu')) {
+        return Promise.resolve(
+          asResponse({
+            ...makePokemon(25, 'pikachu'),
+            stats: [{ base_stat: 35, stat: { name: 'hp' } }],
           }),
         );
       }
@@ -1284,6 +1294,7 @@ describe('searchPokemon (German names)', () => {
 
     expect(detail).not.toBeNull();
     expect(detail?.displayName).toBe('Pikachu');
+    expect(detail?.baseHp).toBe(35);
     expect(detail?.heightMeters).toBe(0.4);
     expect(detail?.weightKilograms).toBe(6);
     expect(detail?.category).toBe('Maus-Pokemon');
@@ -1292,7 +1303,13 @@ describe('searchPokemon (German names)', () => {
     expect(detail?.evolution.stage).toBe('Phase 1');
     expect(detail?.evolution.sharedPath).toEqual([
       { id: 172, displayName: 'Pichu', image: null, types: [] },
-      { id: 25, displayName: 'Pikachu', image: null, types: [] },
+      {
+        id: 25,
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        baseHp: 35,
+        types: [{ name: 'Elektro' }],
+      },
     ]);
     expect(detail?.evolution.branchGroups).toEqual([
       {
@@ -1306,6 +1323,115 @@ describe('searchPokemon (German names)', () => {
     vi.mocked(fetch).mockResolvedValue(asResponse({}, false, 404));
     const { fetchPokemonDetail } = await import('./pokemonApi');
     await expect(fetchPokemonDetail(999999)).resolves.toBeNull();
+  });
+
+  it('maps base HP onto visible evolution tiles when stat data exists', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse({
+            id: 25,
+            name: 'pikachu',
+            height: 4,
+            weight: 60,
+            stats: [{ base_stat: 35, stat: { name: 'hp' } }],
+            sprites: {
+              other: {
+                'official-artwork': {
+                  front_default: 'https://img/pikachu.png',
+                },
+              },
+            },
+            types: [{ type: { name: 'electric' } }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon/pikachu')) {
+        return Promise.resolve(
+          asResponse({
+            ...makePokemon(25, 'pikachu'),
+            stats: [{ base_stat: 35, stat: { name: 'hp' } }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(
+          asResponse({
+            names: [{ language: { name: 'de' }, name: 'Pikachu' }],
+            evolution_chain: {
+              url: 'https://pokeapi.co/api/v2/evolution-chain/10/',
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'pichu', url: 'https://pokeapi.co/api/v2/pokemon-species/172/' },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'pikachu',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/25/',
+                  },
+                  evolves_to: [
+                    {
+                      species: {
+                        name: 'raichu',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/26/',
+                      },
+                      evolves_to: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/172')) {
+        return Promise.resolve(asResponse(speciesNames('Pichu')));
+      }
+
+      if (url.endsWith('/pokemon-species/26')) {
+        return Promise.resolve(asResponse(speciesNames('Raichu')));
+      }
+
+      if (url.endsWith('/pokemon/pichu')) {
+        return Promise.resolve(
+          asResponse({
+            ...makePokemon(172, 'pichu'),
+            stats: [{ base_stat: 20, stat: { name: 'hp' } }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon/raichu')) {
+        return Promise.resolve(
+          asResponse({
+            ...makePokemon(26, 'raichu'),
+            stats: [{ base_stat: 60, stat: { name: 'hp' } }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.baseHp).toBe(35);
+    expect(detail?.evolution.sharedPath[0]?.baseHp).toBe(20);
+    expect(detail?.evolution.sharedPath[1]?.baseHp).toBe(35);
+    expect(detail?.evolution.branchGroups[0]?.items[0]?.baseHp).toBe(60);
   });
 
   it('falls back to Basis detail evolution when pokemon is missing in chain path', async () => {

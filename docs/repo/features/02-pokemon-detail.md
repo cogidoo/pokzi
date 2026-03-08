@@ -62,6 +62,7 @@ Must show:
 
 - official artwork
 - German display name
+- base HP (`KP`) close to the name when API stat data is available
 - Pokemon number (`#001`)
 - German type chips
 
@@ -74,6 +75,7 @@ May also show:
 
 Recommended attributes:
 
+- base HP (`KP`) from official API stats when available
 - height
 - weight
 - category/species label in German, if available
@@ -83,6 +85,7 @@ Presentation rules:
 - Prefer plain-language labels in German.
 - Avoid competitive or technical terminology when not necessary.
 - Show facts as large cards or tiles, not as a dense table.
+- Show `KP` as one clear number and never invent fallback values.
 
 ## Evolution Summary
 
@@ -197,8 +200,10 @@ Implementation notes:
 - If the detail page was opened from search results, the back action returns the user to the preserved search query and results context.
 - If the detail page was opened directly via deep link, the back action returns the user to the neutral search start state.
 - The hero area shows artwork, German name, ID, and German type chips.
+- When available, `KP` is visible directly near the hero identity name.
 - When available, the short German flavor text appears inside the hero instead of as a separate later section.
 - The evolution summary appears before the key facts section.
+- Key facts include `KP` as a clearly visible value when the API provides the stat.
 - The page exposes an evolution summary with the current stage and visual navigation for all visible chain items when available.
 - The back action remains visible in loading, error, and not-found states.
 - Loading, error, retry, not-found, and missing-data behavior are all present and distinguishable.

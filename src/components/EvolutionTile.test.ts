@@ -9,6 +9,7 @@ describe('EvolutionTile', () => {
         id: 25,
         displayName: 'Pikachu',
         image: 'https://img/pikachu.png',
+        baseHp: 35,
         types: [{ name: 'Elektro' }, { name: 'Fee' }, { name: 'Flug' }],
       },
       current: true,
@@ -20,6 +21,7 @@ describe('EvolutionTile', () => {
     expect(screen.getByText('Elektro')).toBeInTheDocument();
     expect(screen.getByText('Fee')).toBeInTheDocument();
     expect(screen.queryByText('Flug')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('KP 35')).toBeInTheDocument();
   });
 
   it('renders non-current tile as button and emits onSelect', async () => {
@@ -29,12 +31,14 @@ describe('EvolutionTile', () => {
         id: 26,
         displayName: 'Raichu',
         image: 'https://img/raichu.png',
+        baseHp: 60,
         types: [{ name: 'Elektro' }],
       },
       current: false,
       onSelect,
     });
 
+    expect(screen.getByLabelText('KP 60')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Zu Raichu wechseln' }));
     expect(onSelect).toHaveBeenCalledWith(26);
   });
@@ -53,6 +57,23 @@ describe('EvolutionTile', () => {
 
     expect(screen.getByText('Kein Bild')).toBeInTheDocument();
     expect(screen.queryByLabelText('Evoli Typen')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/KP /)).not.toBeInTheDocument();
+  });
+
+  it('keeps types visible on non-current tile even when KP is missing', () => {
+    render(EvolutionTile, {
+      tile: {
+        id: 4,
+        displayName: 'Glumanda',
+        image: 'https://img/glumanda.png',
+        types: [{ name: 'Feuer' }],
+      },
+      current: false,
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.getByText('Feuer')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/KP /)).not.toBeInTheDocument();
   });
 
   it('renders image fallback for current tile when image is missing', () => {
@@ -84,5 +105,22 @@ describe('EvolutionTile', () => {
 
     expect(screen.getByText('Relaxo')).toBeInTheDocument();
     expect(screen.queryByLabelText('Relaxo Typen')).not.toBeInTheDocument();
+  });
+
+  it('keeps KP badge visible with very long names', () => {
+    render(EvolutionTile, {
+      tile: {
+        id: 999,
+        displayName: 'SehrLangesPokemonMitVielemTextUndMehrerenSilben',
+        image: 'https://img/longname.png',
+        baseHp: 88,
+        types: [{ name: 'Drache' }],
+      },
+      current: false,
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.getByLabelText('KP 88')).toBeInTheDocument();
+    expect(screen.getByText('SehrLangesPokemonMitVielemTextUndMehrerenSilben')).toBeInTheDocument();
   });
 });

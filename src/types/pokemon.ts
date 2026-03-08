@@ -30,6 +30,8 @@ export interface PokemonEvolutionTile {
   id: number;
   displayName: string;
   image: string | null;
+  /** Base HP from official API stats (`hp`), if available. */
+  baseHp?: number;
   types?: PokemonType[];
 }
 
@@ -59,6 +61,8 @@ export interface PokemonDetail {
   displayName: string;
   image: string | null;
   types: PokemonType[];
+  /** Base HP from official API stats (`hp`), if available. */
+  baseHp?: number | null;
   heightMeters: number;
   weightKilograms: number;
   category: string | null;

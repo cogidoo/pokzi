@@ -12,6 +12,8 @@
 
   const { tile, current, onSelect }: Props = $props();
   const types = $derived((tile.types ?? []).slice(0, 2));
+  const hasBaseHp = $derived(tile.baseHp !== undefined && Number.isFinite(tile.baseHp));
+  const baseHpLabel = $derived(hasBaseHp ? `KP ${String(tile.baseHp)}` : '');
 
   /**
    * Emits selection of the tile id.
@@ -31,7 +33,15 @@
       {/if}
     </div>
     <div class="evolution-item__content">
-      <span class="evolution-item__name">{tile.displayName}</span>
+      <div class="evolution-item__name-row">
+        <span class="evolution-item__name">{tile.displayName}</span>
+        <span
+          class="evolution-item__kp"
+          hidden={!hasBaseHp}
+          aria-hidden={!hasBaseHp}
+          aria-label={baseHpLabel}>{hasBaseHp ? `KP ${String(tile.baseHp)}` : ''}</span
+        >
+      </div>
       {#if types.length > 0}
         <div class="evolution-item__types" aria-label={`${tile.displayName} Typen`}>
           {#each types as type (type.name)}
@@ -56,7 +66,15 @@
       {/if}
     </div>
     <div class="evolution-item__content">
-      <span class="evolution-item__name">{tile.displayName}</span>
+      <div class="evolution-item__name-row">
+        <span class="evolution-item__name">{tile.displayName}</span>
+        <span
+          class="evolution-item__kp"
+          hidden={!hasBaseHp}
+          aria-hidden={!hasBaseHp}
+          aria-label={baseHpLabel}>{hasBaseHp ? `KP ${String(tile.baseHp)}` : ''}</span
+        >
+      </div>
       {#if types.length > 0}
         <div class="evolution-item__types" aria-label={`${tile.displayName} Typen`}>
           {#each types as type (type.name)}

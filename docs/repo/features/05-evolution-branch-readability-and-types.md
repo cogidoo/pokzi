@@ -2,7 +2,7 @@
 
 ## Goal
 
-Children can understand branching evolutions at a glance and use German type chips on each visible evolution item for faster orientation.
+Children can understand branching evolutions at a glance and use German type chips plus clear `KP` on each visible evolution item for faster orientation.
 
 ## Design Reference
 
@@ -20,6 +20,7 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 - One persistent stage board (`Basis`, `Phase 1`, `Phase 2`) that keeps order obvious
 - Branch groups for reachable later evolution options when multiple paths exist
 - German type chips on each evolution item (`1-2` chips)
+- Base HP (`KP`) on each evolution item when API stat data is available
 - Stable tap navigation behavior for every visible non-current evolution item
 
 ## Non-Scope
@@ -40,7 +41,8 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 2. App shows one ordered evolution summary with a clear stage board and the current evolution stage label.
 3. If later branches exist, app shows all reachable options in grouped, readable order based on the PokeAPI evolution-chain order.
 4. Each visible evolution item shows image, German name, and German type chips.
-5. User taps any non-current evolution item and opens that Pokemon detail page in the same detail context.
+5. Each visible evolution item also shows `KP`, when available from API stat data.
+6. User taps any non-current evolution item and opens that Pokemon detail page in the same detail context.
 
 ## Interaction Rules
 
@@ -54,6 +56,7 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 - Current Pokemon remains highlighted and not tappable.
 - Type chips are informational only and never interactive.
 - Show at most `2` type chips per evolution item.
+- Show `KP` only when a valid API value exists; do not invent fallback values.
 - Do not introduce horizontal scrolling for the evolution section on `320-1024px`.
 - Preserve the existing detail-page back-navigation rules after one or multiple in-detail evolution jumps.
 
@@ -61,6 +64,7 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 
 - Evolution item names use German Pokemon names.
 - Evolution item type chips use German type labels.
+- Evolution item `KP` label stays short and child-friendly (`KP` + clear number).
 - All supporting copy remains German and short.
 - Keep type-chip emphasis secondary to image and name.
 
@@ -140,10 +144,11 @@ Implementation notes:
 
 ### Evolution Item Anatomy
 
-- Each item shows artwork, German display name, and up to `2` German type chips.
+- Each item shows artwork, German display name, a compact `KP` badge when available, and up to `2` German type chips.
 - The current item may also show the stage emphasis most clearly, but stage context must remain understandable across the full section.
 - Non-current items behave like tiles, not like primary buttons.
 - Type chips stay compact, visually secondary, and aligned as one metadata row beneath the name.
+- `KP` should be visible near the name as an immediate orientation cue.
 
 Implementation notes:
 
@@ -179,7 +184,7 @@ Implementation notes:
 
 - The evolution summary reads as one ordered section with a dominant shared path and clearly subordinate branch groups.
 - The current Pokemon is the strongest visual anchor inside the section without overpowering the page hero.
-- Every visible evolution item shows German name and, when available, German type chips in a stable compact layout.
+- Every visible evolution item shows German name and, when available, German type chips and `KP` in a stable compact layout.
 - Multiple later branches remain understandable on `320-1024px` without horizontal scrolling or graph-like connectors.
 - Non-current items are obviously tappable, while the current item is clearly inactive.
 - In-detail navigation through evolution items preserves spatial orientation through stable section framing and non-jarring loading behavior.
@@ -192,6 +197,7 @@ Implementation notes:
 - Every visible non-current evolution item can be opened directly from the section.
 - The current Pokemon is clearly highlighted and not tappable.
 - Each visible evolution item renders German type chips when type data exists.
+- Each visible evolution item renders `KP` when base HP data exists.
 - Type chips remain informational and non-interactive.
 - The current evolution stage label remains visible in the evolution summary.
 - Evolution section remains readable and touch-safe on `320-1024px` without horizontal scrolling.

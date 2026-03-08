@@ -88,6 +88,7 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
     displayName: 'Pikachu',
     image: 'https://img/pikachu.png',
     types: [{ name: 'Elektro' }],
+    baseHp: 35,
     heightMeters: 0.4,
     weightKilograms: 6,
     category: 'Maus-Pokemon',
@@ -732,6 +733,7 @@ describe('App', () => {
       displayName: 'Pikachu',
       image: 'https://img/pikachu.png',
       types: [{ name: 'Elektro' }],
+      baseHp: 35,
       heightMeters: 0.4,
       weightKilograms: 6,
       category: 'Maus-Pokemon',
@@ -781,8 +783,11 @@ describe('App', () => {
     expect(
       screen.getByText('Wenn mehrere dieser POKeMON sich versammeln, entladen sie Strom.'),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText('KP 35')).toBeInTheDocument();
     expect(screen.getByText('Größe')).toBeInTheDocument();
     expect(screen.getByText('Gewicht')).toBeInTheDocument();
+    expect(screen.getByText('KP')).toBeInTheDocument();
+    expect(screen.getByText('35')).toBeInTheDocument();
     expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Wichtige Fakten' })).toBeInTheDocument();
   });
@@ -854,6 +859,63 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Raichu' })).toBeInTheDocument();
     });
     expect(window.location.hash).toBe('#/pokemon/26');
+  });
+
+  it('does not render a KP fact card when base HP is unavailable', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce({
+      id: 25,
+      name: 'pikachu',
+      displayName: 'Pikachu',
+      image: 'https://img/pikachu.png',
+      types: [{ name: 'Elektro' }],
+      heightMeters: 0.4,
+      weightKilograms: 6,
+      category: 'Maus-Pokemon',
+      flavorText: null,
+      evolution: {
+        stage: 'Phase 1',
+        sharedPath: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
+        branchGroups: [],
+      },
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('KP')).not.toBeInTheDocument();
+  });
+
+  it('does not render a KP badge near the hero name when base HP is unavailable', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce({
+      id: 25,
+      name: 'pikachu',
+      displayName: 'Pikachu',
+      image: 'https://img/pikachu.png',
+      types: [{ name: 'Elektro' }],
+      baseHp: null,
+      heightMeters: 0.4,
+      weightKilograms: 6,
+      category: null,
+      flavorText: null,
+      evolution: {
+        stage: 'Phase 1',
+        sharedPath: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
+        branchGroups: [],
+      },
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText(/KP /)).not.toBeInTheDocument();
   });
 
   it('keeps detail frame stable while loading next evolution detail', async () => {

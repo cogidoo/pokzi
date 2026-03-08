@@ -73,6 +73,7 @@ async function routeTextSearchPikachu(page: Page) {
         name: 'pikachu',
         height: 4,
         weight: 60,
+        stats: [{ base_stat: 35, stat: { name: 'hp' } }],
         sprites: {
           other: {
             'official-artwork': { front_default: 'https://img.test/pikachu.png' },
@@ -88,6 +89,7 @@ async function routeTextSearchPikachu(page: Page) {
         name: 'pichu',
         height: 3,
         weight: 20,
+        stats: [{ base_stat: 20, stat: { name: 'hp' } }],
         sprites: {
           other: {
             'official-artwork': { front_default: 'https://img.test/pichu.png' },
@@ -103,6 +105,7 @@ async function routeTextSearchPikachu(page: Page) {
         name: 'raichu',
         height: 8,
         weight: 300,
+        stats: [{ base_stat: 60, stat: { name: 'hp' } }],
         sprites: {
           other: {
             'official-artwork': { front_default: 'https://img.test/raichu.png' },
@@ -802,8 +805,11 @@ test('Ergebniskarte öffnet Detailansicht und Zurück behält Suchliste', async 
   await page.getByRole('button', { name: /Pikachu/i }).click();
 
   await expect(page.getByRole('heading', { name: 'Wichtige Fakten' })).toBeVisible();
+  await expect(page.getByLabel('KP 35')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zu Pichu wechseln' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zu Raichu wechseln' })).toBeVisible();
+  await expect(page.getByLabel('KP 20')).toBeVisible();
+  await expect(page.getByLabel('KP 60')).toBeVisible();
   await expect(page.getByText('Größe')).toBeVisible();
   await page.getByRole('button', { name: 'Zurück zur Suche' }).click();
 
