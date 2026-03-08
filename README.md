@@ -56,3 +56,5 @@ Built to feel easy for children and maintainable for teams.
 - `npm run check`
 - `npm test`
 - `npm run test:e2e`
+- `npm run index:de:check`
+- `npm run index:de:update`

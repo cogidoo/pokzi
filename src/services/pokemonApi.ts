@@ -5,6 +5,7 @@ import type {
   PokemonSearchResult,
   SearchMatchQuality,
 } from '../types/pokemon';
+import { GERMAN_SPECIES_NAME_BY_ID } from '../data/pokemonGermanSpeciesIndex';
 import {
   createGermanNameSearchIndex,
   normalizeQuery,
@@ -610,24 +611,21 @@ async function resolveEvolutionSummary(
  * Loads and normalizes one German index entry from a species item.
  *
  * @param species - Base species entry from index.
- * @param signal - Optional cancellation signal.
  * @returns Localized index item or `null` if no German translation exists.
  */
-async function fetchGermanIndexItem(
+function fetchGermanIndexItem(
   species: BaseSpeciesIndexItem,
-  signal?: AbortSignal,
 ): Promise<GermanPokemonIndexItem | null> {
-  const speciesData = await fetchPokemonSpecies(species.id, signal);
-  const germanName = getGermanNameFromSpecies(speciesData);
+  const germanName = GERMAN_SPECIES_NAME_BY_ID[species.id];
   if (!germanName) {
-    return null;
+    return Promise.resolve(null);
   }
 
-  return {
+  return Promise.resolve({
     id: species.id,
     germanName,
     germanNameToleranceKey: normalizeToleranceText(germanName),
-  };
+  });
 }
 
 /**

@@ -19,6 +19,7 @@ export default tseslint.config(
       'node_modules/**',
       'playwright-report/**',
       'test-results/**',
+      'scripts/**',
       'eslint.config.js',
       'playwright.config.ts',
       'svelte.config.js',

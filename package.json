@@ -8,6 +8,8 @@
     "build": "vite build",
     "build:pages": "vite build --mode gh-pages",
     "preview": "vite preview",
+    "index:de:check": "node scripts/pokemonGermanSpeciesIndex.mjs check",
+    "index:de:update": "node scripts/pokemonGermanSpeciesIndex.mjs update",
     "mcp:playwright": "source \"$HOME/.nvm/nvm.sh\" && npx @playwright/mcp@0.0.68 --browser chromium --headless --isolated --output-dir /tmp/playwright-mcp-output",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

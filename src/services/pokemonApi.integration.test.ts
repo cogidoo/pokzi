@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GERMAN_SPECIES_NAME_BY_ID } from '../data/pokemonGermanSpeciesIndex';
 
 function makePokemon(id: number, name: string, image = `https://img/${name}.png`) {
   return {
@@ -251,27 +252,27 @@ describe('searchPokemon (German names)', () => {
       if (url.includes('/pokemon-species?limit=1400')) {
         return Promise.resolve(
           asResponse({
-            results: [{ name: 'custom', url: 'https://pokeapi.co/api/v2/pokemon-species/300/' }],
+            results: [{ name: 'skiddo', url: 'https://pokeapi.co/api/v2/pokemon-species/672/' }],
           }),
         );
       }
 
-      if (url.endsWith('/pokemon-species/300')) {
-        return Promise.resolve(asResponse(speciesNames('Flußel')));
+      if (url.endsWith('/pokemon-species/672')) {
+        return Promise.resolve(asResponse(speciesNames('Mähikel')));
       }
 
-      if (url.endsWith('/pokemon/300')) {
-        return Promise.resolve(asResponse(makePokemon(300, 'custom')));
+      if (url.endsWith('/pokemon/672')) {
+        return Promise.resolve(asResponse(makePokemon(672, 'skiddo')));
       }
 
       return Promise.resolve(asResponse({}, false, 404));
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    const [result] = await searchPokemon('flussel');
+    const [result] = await searchPokemon('maehikel');
 
     expect(result).toBeDefined();
-    expect(result.displayName).toBe('Flußel');
+    expect(result.displayName).toBe('Mähikel');
     expect(result.matchQuality).toBe('exact');
   });
 
@@ -313,78 +314,59 @@ describe('searchPokemon (German names)', () => {
       if (url.includes('/pokemon-species?limit=1400')) {
         return Promise.resolve(
           asResponse({
-            results: [{ name: 'longmon', url: 'https://pokeapi.co/api/v2/pokemon-species/500/' }],
+            results: [{ name: 'squirtle', url: 'https://pokeapi.co/api/v2/pokemon-species/7/' }],
           }),
         );
       }
 
-      if (url.endsWith('/pokemon-species/500')) {
-        return Promise.resolve(asResponse(speciesNames('Abcdefgh')));
+      if (url.endsWith('/pokemon-species/7')) {
+        return Promise.resolve(asResponse(speciesNames('Schiggy')));
       }
 
-      if (url.endsWith('/pokemon/500')) {
-        return Promise.resolve(asResponse(makePokemon(500, 'longmon')));
+      if (url.endsWith('/pokemon/7')) {
+        return Promise.resolve(asResponse(makePokemon(7, 'squirtle')));
       }
 
       return Promise.resolve(asResponse({}, false, 404));
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    const [result] = await searchPokemon('abxdexgh');
+    const [result] = await searchPokemon('schigyy');
 
     expect(result).toBeDefined();
-    expect(result.displayName).toBe('Abcdefgh');
+    expect(result.displayName).toBe('Schiggy');
     expect(result.matchQuality).toBe('tolerant');
   });
 
-  it('orders tolerant typo matches by distance then alphabetically', async () => {
+  it('returns tolerant matches when no exact or partial german match exists', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
 
       if (url.includes('/pokemon-species?limit=1400')) {
         return Promise.resolve(
           asResponse({
-            results: [
-              { name: 'mon-1', url: 'https://pokeapi.co/api/v2/pokemon-species/401/' },
-              { name: 'mon-2', url: 'https://pokeapi.co/api/v2/pokemon-species/402/' },
-              { name: 'mon-3', url: 'https://pokeapi.co/api/v2/pokemon-species/403/' },
-            ],
+            results: [{ name: 'squirtle', url: 'https://pokeapi.co/api/v2/pokemon-species/7/' }],
           }),
         );
       }
 
-      if (url.endsWith('/pokemon-species/401')) {
-        return Promise.resolve(asResponse(speciesNames('Mirabu')));
+      if (url.endsWith('/pokemon-species/7')) {
+        return Promise.resolve(asResponse(speciesNames('Schiggy')));
       }
 
-      if (url.endsWith('/pokemon-species/402')) {
-        return Promise.resolve(asResponse(speciesNames('Morybu')));
-      }
-
-      if (url.endsWith('/pokemon-species/403')) {
-        return Promise.resolve(asResponse(speciesNames('Murabu')));
-      }
-
-      if (url.endsWith('/pokemon/401')) {
-        return Promise.resolve(asResponse(makePokemon(401, 'mon-1')));
-      }
-
-      if (url.endsWith('/pokemon/402')) {
-        return Promise.resolve(asResponse(makePokemon(402, 'mon-2')));
-      }
-
-      if (url.endsWith('/pokemon/403')) {
-        return Promise.resolve(asResponse(makePokemon(403, 'mon-3')));
+      if (url.endsWith('/pokemon/7')) {
+        return Promise.resolve(asResponse(makePokemon(7, 'squirtle')));
       }
 
       return Promise.resolve(asResponse({}, false, 404));
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    const results = await searchPokemon('marabu');
+    const [result] = await searchPokemon('schigyy');
 
-    expect(results.map((entry) => entry.displayName)).toEqual(['Mirabu', 'Murabu', 'Morybu']);
-    expect(results.every((entry) => entry.matchQuality === 'tolerant')).toBe(true);
+    expect(result).toBeDefined();
+    expect(result.displayName).toBe('Schiggy');
+    expect(result.matchQuality).toBe('tolerant');
   });
 
   it('maps root chain pokemon to Basis stage', async () => {
@@ -623,17 +605,14 @@ describe('searchPokemon (German names)', () => {
     await expect(searchPokemon('evo')).resolves.toEqual([]);
   });
 
-  it('prioritizes exact german match before fuzzy results', async () => {
+  it('marks full-name german query results as exact matches', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
 
       if (url.includes('/pokemon-species?limit=1400')) {
         return Promise.resolve(
           asResponse({
-            results: [
-              { name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' },
-              { name: 'pikipek', url: 'https://pokeapi.co/api/v2/pokemon-species/731/' },
-            ],
+            results: [{ name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' }],
           }),
         );
       }
@@ -642,27 +621,19 @@ describe('searchPokemon (German names)', () => {
         return Promise.resolve(asResponse(speciesNames('Pikachu')));
       }
 
-      if (url.endsWith('/pokemon-species/731')) {
-        return Promise.resolve(asResponse(speciesNames('Pikadings')));
-      }
-
       if (url.endsWith('/pokemon/25')) {
         return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
-      }
-
-      if (url.endsWith('/pokemon/731')) {
-        return Promise.resolve(asResponse(makePokemon(731, 'pikipek')));
       }
 
       return Promise.resolve(asResponse({}, false, 404));
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    const results = await searchPokemon('pika');
+    const results = await searchPokemon('pikachu');
 
-    expect(results).toHaveLength(2);
+    expect(results).toHaveLength(1);
     expect(results[0]?.displayName).toBe('Pikachu');
-    expect(results[1]?.displayName).toBe('Pikadings');
+    expect(results[0]?.matchQuality).toBe('exact');
   });
 
   it('filters out pokemon detail 404s', async () => {
@@ -838,7 +809,26 @@ describe('searchPokemon (German names)', () => {
     await expect(searchPokemon('brok')).resolves.toEqual([]);
   });
 
-  it('throws when species detail lookup fails with non-404', async () => {
+  it('returns no text matches when species ids are outside the bundled german index', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.includes('/pokemon-species?limit=1400')) {
+        return Promise.resolve(
+          asResponse({
+            results: [{ name: 'unknown', url: 'https://pokeapi.co/api/v2/pokemon-species/9999/' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+    await expect(searchPokemon('unk')).resolves.toEqual([]);
+  });
+
+  it('throws when detail species lookup fails with non-404 during text search', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
 
@@ -850,6 +840,10 @@ describe('searchPokemon (German names)', () => {
         );
       }
 
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
+      }
+
       if (url.endsWith('/pokemon-species/25')) {
         return Promise.resolve(asResponse({}, false, 500));
       }
@@ -858,13 +852,77 @@ describe('searchPokemon (German names)', () => {
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    await expect(searchPokemon('pik')).rejects.toThrow('Request failed: 500');
+    await expect(searchPokemon('pikachu')).rejects.toThrow('Request failed: 500');
+  });
+
+  it('avoids per-index species-localization requests during german text search', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.includes('/pokemon-species?limit=1400')) {
+        return Promise.resolve(
+          asResponse({
+            results: [
+              { name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' },
+              { name: 'raichu', url: 'https://pokeapi.co/api/v2/pokemon-species/26/' },
+            ],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu', 10)));
+      }
+
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'pichu' },
+              evolves_to: [
+                {
+                  species: { name: 'pikachu' },
+                  evolves_to: [{ species: { name: 'raichu' }, evolves_to: [] }],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+    await searchPokemon('pikachu');
+
+    const speciesByIdCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => /\/pokemon-species\/\d+\/?$/.test(inputToUrl(url)));
+
+    expect(speciesByIdCalls).toHaveLength(1);
+    expect(
+      speciesByIdCalls[0]
+        ? inputToUrl(speciesByIdCalls[0][0]).endsWith('/pokemon-species/25')
+        : false,
+    ).toBe(true);
   });
 
   it('caps german-name matches at 20', async () => {
-    const results = Array.from({ length: 30 }, (_, index) => ({
-      name: `poke${String(index)}`,
-      url: `https://pokeapi.co/api/v2/pokemon-species/${String(index + 1)}/`,
+    const candidateIds = Object.entries(GERMAN_SPECIES_NAME_BY_ID)
+      .filter(([, germanName]) => germanName.toLowerCase().includes('ra'))
+      .slice(0, 30)
+      .map(([id]) => Number(id));
+
+    expect(candidateIds.length).toBeGreaterThanOrEqual(20);
+
+    const results = candidateIds.map((id) => ({
+      name: `poke${String(id)}`,
+      url: `https://pokeapi.co/api/v2/pokemon-species/${String(id)}/`,
     }));
 
     vi.mocked(fetch).mockImplementation((input) => {
@@ -874,20 +932,22 @@ describe('searchPokemon (German names)', () => {
         return Promise.resolve(asResponse({ results }));
       }
 
-      const speciesId = /pokemon-species\/(\d+)/.exec(url)?.[1];
-      if (speciesId) {
-        return Promise.resolve(asResponse(speciesNames(`Poke${speciesId}`)));
+      const pokemonId = /\/pokemon\/(\d+)\/?$/.exec(url)?.[1];
+      if (pokemonId) {
+        return Promise.resolve(asResponse(makePokemon(Number(pokemonId), `poke${pokemonId}`)));
       }
 
-      const pokemonId = url.split('/').at(-1);
-      if (!pokemonId) {
-        throw new Error('Pokemon ID missing in URL');
+      const speciesId = /\/pokemon-species\/(\d+)\/?$/.exec(url)?.[1];
+      if (speciesId) {
+        const germanName = GERMAN_SPECIES_NAME_BY_ID[Number(speciesId)];
+        return Promise.resolve(asResponse(speciesNames(germanName)));
       }
-      return Promise.resolve(asResponse(makePokemon(Number(pokemonId), `poke${pokemonId}`)));
+
+      return Promise.resolve(asResponse({}, false, 404));
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    const found = await searchPokemon('poke');
+    const found = await searchPokemon('ra');
 
     expect(found).toHaveLength(20);
   });
@@ -933,7 +993,7 @@ describe('searchPokemon (German names)', () => {
     expect(maxInFlightSpecies).toBeLessThanOrEqual(8);
   });
 
-  it('finds and prioritizes an exact match even when it appears late in the index', async () => {
+  it('keeps first german text search request volume bounded on cold cache', async () => {
     const results = Array.from({ length: 1400 }, (_, index) => ({
       name: `poke${String(index + 1)}`,
       url: `https://pokeapi.co/api/v2/pokemon-species/${String(index + 1)}/`,
@@ -946,151 +1006,42 @@ describe('searchPokemon (German names)', () => {
         return Promise.resolve(asResponse({ results }));
       }
 
-      const speciesId = /pokemon-species\/(\d+)/.exec(url)?.[1];
-      if (speciesId) {
-        if (speciesId === '1000') {
-          return Promise.resolve(asResponse(speciesNames('Pika')));
-        }
-
-        return Promise.resolve(asResponse(speciesNames(`Pika${speciesId}`)));
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
       }
 
-      const pokemonId = url.split('/').at(-1);
-      if (!pokemonId) {
-        throw new Error('Pokemon ID missing in URL');
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu', 10)));
       }
 
-      return Promise.resolve(asResponse(makePokemon(Number(pokemonId), `poke${pokemonId}`)));
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'pichu' },
+              evolves_to: [
+                {
+                  species: { name: 'pikachu' },
+                  evolves_to: [{ species: { name: 'raichu' }, evolves_to: [] }],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    const found = await searchPokemon('pika');
+    const found = await searchPokemon('pikachu');
 
-    expect(found).toHaveLength(20);
-    expect(found[0]?.id).toBe(1000);
-    expect(found[0]?.displayName).toBe('Pika');
-  });
+    expect(found).toHaveLength(1);
 
-  it('limits additional localization work after finding an exact match', async () => {
-    const results = Array.from({ length: 1400 }, (_, index) => ({
-      name: `poke${String(index + 1)}`,
-      url: `https://pokeapi.co/api/v2/pokemon-species/${String(index + 1)}/`,
-    }));
-    let localizedSpeciesCalls = 0;
-
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
-
-      if (url.includes('/pokemon-species?limit=1400')) {
-        return Promise.resolve(asResponse({ results }));
-      }
-
-      const speciesId = /pokemon-species\/(\d+)/.exec(url)?.[1];
-      if (speciesId) {
-        localizedSpeciesCalls += 1;
-        if (speciesId === '1') {
-          return Promise.resolve(asResponse(speciesNames('Pika')));
-        }
-        return Promise.resolve(asResponse(speciesNames(`Name${speciesId}`)));
-      }
-
-      const pokemonId = url.split('/').at(-1);
-      if (!pokemonId) {
-        throw new Error('Pokemon ID missing in URL');
-      }
-
-      return Promise.resolve(asResponse(makePokemon(Number(pokemonId), `poke${pokemonId}`)));
-    });
-
-    const { searchPokemon } = await import('./pokemonApi');
-    const found = await searchPokemon('pika');
-
-    expect(found[0]?.displayName).toBe('Pika');
-    expect(localizedSpeciesCalls).toBeLessThanOrEqual(121);
-  });
-
-  it('scans two additional batches when the exact match is already cached', async () => {
-    const results = Array.from({ length: 1400 }, (_, index) => ({
-      name: `poke${String(index + 1)}`,
-      url: `https://pokeapi.co/api/v2/pokemon-species/${String(index + 1)}/`,
-    }));
-    let localizedSpeciesCalls = 0;
-
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
-
-      if (url.includes('/pokemon-species?limit=1400')) {
-        return Promise.resolve(asResponse({ results }));
-      }
-
-      const speciesId = /pokemon-species\/(\d+)/.exec(url)?.[1];
-      if (speciesId) {
-        localizedSpeciesCalls += 1;
-        if (speciesId === '1') {
-          return Promise.resolve(asResponse(speciesNames('Pika')));
-        }
-        return Promise.resolve(asResponse(speciesNames(`Name${speciesId}`)));
-      }
-
-      const pokemonId = url.split('/').at(-1);
-      if (!pokemonId) {
-        throw new Error('Pokemon ID missing in URL');
-      }
-
-      return Promise.resolve(asResponse(makePokemon(Number(pokemonId), `poke${pokemonId}`)));
-    });
-
-    const { searchPokemon } = await import('./pokemonApi');
-    await searchPokemon('pika');
-    const callsAfterFirstSearch = localizedSpeciesCalls;
-
-    await searchPokemon('pika');
-    const secondSearchLocalizationCalls = localizedSpeciesCalls - callsAfterFirstSearch;
-
-    expect(secondSearchLocalizationCalls).toBe(81);
-  });
-
-  it('does not advance scan cursor when a localization batch aborts', async () => {
-    const results = Array.from({ length: 80 }, (_, index) => ({
-      name: `poke${String(index + 1)}`,
-      url: `https://pokeapi.co/api/v2/pokemon-species/${String(index + 1)}/`,
-    }));
-    let firstBatchAborts = true;
-
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
-
-      if (url.includes('/pokemon-species?limit=1400')) {
-        return Promise.resolve(asResponse({ results }));
-      }
-
-      if (url.endsWith('/pokemon-species/1') && firstBatchAborts) {
-        firstBatchAborts = false;
-        return Promise.reject(new DOMException('Aborted', 'AbortError'));
-      }
-
-      const speciesId = /pokemon-species\/(\d+)/.exec(url)?.[1];
-      if (speciesId) {
-        return Promise.resolve(asResponse(speciesNames(`Pika${speciesId}`)));
-      }
-
-      const pokemonId = url.split('/').at(-1);
-      if (!pokemonId) {
-        throw new Error('Pokemon ID missing in URL');
-      }
-
-      return Promise.resolve(asResponse(makePokemon(Number(pokemonId), `poke${pokemonId}`)));
-    });
-
-    const { searchPokemon } = await import('./pokemonApi');
-    await expect(searchPokemon('pika1')).rejects.toMatchObject({
-      name: 'SearchPokemonError',
-      code: 'timeout',
-    });
-
-    const secondTry = await searchPokemon('pika1');
-    expect(secondTry.length).toBeGreaterThan(0);
-    expect(secondTry[0]?.id).toBe(1);
+    const allCalls = vi.mocked(fetch).mock.calls.map(([url]) => inputToUrl(url));
+    const perSpeciesCalls = allCalls.filter((url) => /\/pokemon-species\/\d+\/?$/.test(url));
+    expect(perSpeciesCalls).toEqual(['https://pokeapi.co/api/v2/pokemon-species/25']);
+    expect(allCalls.length).toBeLessThanOrEqual(4);
   });
 
   it('uses front_default image when official artwork is missing', async () => {

@@ -640,8 +640,9 @@ async function routePhase2DenseStack(page: Page) {
 }
 
 async function routeTextSearchWithCount(page: Page, count: number) {
+  const preferredIds = [20, 25, 53, 58, 59, 64, 115, 129, 140, 141, 158, 205];
   const entries = Array.from({ length: count }, (_, index) => {
-    const id = index + 1;
+    const id = preferredIds[index] ?? index + 1;
     const idText = String(id);
     return {
       id,
@@ -927,7 +928,7 @@ test('Such-Header wird beim Scrollen kompakt', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 640 });
   await page.goto('/');
 
-  await page.getByLabel('Pokemon suchen').fill('pi');
+  await page.getByLabel('Pokemon suchen').fill('ka');
   await page.getByRole('button', { name: 'Suchen' }).click();
   await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
 
@@ -949,7 +950,7 @@ test('Langsames Scrollen bleibt stabil und Clear-Button funktioniert auch im kom
   await page.goto('/');
 
   const searchInput = page.getByLabel('Pokemon suchen');
-  await searchInput.fill('pi');
+  await searchInput.fill('ka');
   await page.getByRole('button', { name: 'Suchen' }).click();
   await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
 
@@ -979,7 +980,7 @@ test('Header bleibt nicht im kompakten Zustand haengen, wenn die Liste nach Coll
   await page.setViewportSize({ width: 390, height: 640 });
   await page.goto('/');
 
-  await page.getByLabel('Pokemon suchen').fill('pi');
+  await page.getByLabel('Pokemon suchen').fill('ka');
   await page.getByRole('button', { name: 'Suchen' }).click();
   await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
 
