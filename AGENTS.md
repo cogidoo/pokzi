@@ -214,6 +214,15 @@ Treat these as mandatory overlays, not optional afterthoughts:
 - Add regression tests for any bugfix that changes behavior.
 - Avoid flaky timing tests; prefer deterministic assertions.
 - Maintain deterministic E2E smoke tests for critical search flows (use mocked API responses).
+- Use component test boundaries consistently:
+  - Test real Svelte components by default; avoid child-component stubs unless external boundaries or non-determinism force isolation.
+  - Leaf/presentational components (`SearchBar`, `ResultCard`, `StatusState`, `EvolutionTile`) get direct UI-focused unit tests.
+  - Parent/orchestrator components (`EvolutionSummary`, `App`) should emphasize integration contracts (state/routing/callback orchestration) while still rendering real children in normal unit tests.
+  - Child markup, fallback visuals, and micro-a11y details must be asserted in the child component's own test file.
+  - Rule of thumb (mandatory): assert each behavior at the lowest responsible layer once.
+    - Leaf details (markup/fallback/chip rendering/micro-a11y) belong only to the leaf test.
+    - Parent tests must not duplicate leaf detail assertions unless the parent transforms that detail.
+    - Parent tests focus on composition contracts: visibility, ordering, state transitions, callback/routing flow.
 
 ## API Rules
 

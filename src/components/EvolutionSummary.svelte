@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EvolutionTile from './EvolutionTile.svelte';
   import type { PokemonEvolutionSummary, PokemonEvolutionTile } from '../types/pokemon';
 
   /**
@@ -32,16 +33,6 @@
    */
   function isCurrent(tile: PokemonEvolutionTile): boolean {
     return tile.id === currentPokemonId;
-  }
-
-  /**
-   * Returns up to two type chips for one evolution tile.
-   *
-   * @param tile - Evolution tile rendered in one stage lane.
-   * @returns Type labels for compact metadata rendering.
-   */
-  function tileTypes(tile: PokemonEvolutionTile) {
-    return (tile.types ?? []).slice(0, 2);
   }
 
   /**
@@ -87,8 +78,6 @@
    * @returns Ordered Phase-2 groups with readable origin labels.
    */
   function resolvePhase2Groups(summary: PokemonEvolutionSummary): Phase2Group[] {
-    const phase1Tiles = resolvePhase1Tiles(summary);
-
     if (summary.sharedPath.length >= 3) {
       const origin = summary.sharedPath[1];
       const phase2Tile = summary.sharedPath[2];
@@ -120,6 +109,7 @@
     }
 
     const groups: Record<number, PokemonEvolutionTile[]> = {};
+    const originNames: Record<number, string> = {};
     const order: number[] = [];
     for (const group of summary.branchGroups) {
       if (group.items.length < 2) {
@@ -132,14 +122,14 @@
       existing.push(phase2);
       if (!(phase1.id in groups)) {
         order.push(phase1.id);
+        originNames[phase1.id] = phase1.displayName;
       }
       groups[phase1.id] = existing;
     }
 
     return order.map((originId) => ({
       originId,
-      originName:
-        phase1Tiles.find((tile) => tile.id === originId)?.displayName ?? `#${String(originId)}`,
+      originName: originNames[originId],
       items: uniqueTiles(groups[originId] ?? []),
     }));
   }
@@ -156,62 +146,7 @@
     <div class="evolution-stage__lane">
       {#if basisTile}
         <div class="evolution-stage__entry">
-          {#if isCurrent(basisTile)}
-            <article class="evolution-item evolution-item--current" aria-current="true">
-              <div class="evolution-item__image-wrap">
-                {#if basisTile.image}
-                  <img
-                    class="evolution-item__image"
-                    src={basisTile.image}
-                    alt={basisTile.displayName}
-                  />
-                {:else}
-                  <div class="evolution-item__image-fallback">Kein Bild</div>
-                {/if}
-              </div>
-              <div class="evolution-item__content">
-                <span class="evolution-item__name">{basisTile.displayName}</span>
-                {#if tileTypes(basisTile).length > 0}
-                  <div class="evolution-item__types" aria-label={`${basisTile.displayName} Typen`}>
-                    {#each tileTypes(basisTile) as type (type.name)}
-                      <span class="type-chip">{type.name}</span>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </article>
-          {:else}
-            <button
-              class="evolution-item"
-              type="button"
-              onclick={() => {
-                onSelect(basisTile.id);
-              }}
-              aria-label={`Zu ${basisTile.displayName} wechseln`}
-            >
-              <div class="evolution-item__image-wrap">
-                {#if basisTile.image}
-                  <img
-                    class="evolution-item__image"
-                    src={basisTile.image}
-                    alt={basisTile.displayName}
-                  />
-                {:else}
-                  <div class="evolution-item__image-fallback">Kein Bild</div>
-                {/if}
-              </div>
-              <div class="evolution-item__content">
-                <span class="evolution-item__name">{basisTile.displayName}</span>
-                {#if tileTypes(basisTile).length > 0}
-                  <div class="evolution-item__types" aria-label={`${basisTile.displayName} Typen`}>
-                    {#each tileTypes(basisTile) as type (type.name)}
-                      <span class="type-chip">{type.name}</span>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </button>
-          {/if}
+          <EvolutionTile tile={basisTile} current={isCurrent(basisTile)} {onSelect} />
         </div>
       {/if}
     </div>
@@ -224,54 +159,7 @@
     <div class="evolution-stage__lane">
       {#each phase1Tiles as tile (tile.id)}
         <div class="evolution-stage__entry">
-          {#if isCurrent(tile)}
-            <article class="evolution-item evolution-item--current" aria-current="true">
-              <div class="evolution-item__image-wrap">
-                {#if tile.image}
-                  <img class="evolution-item__image" src={tile.image} alt={tile.displayName} />
-                {:else}
-                  <div class="evolution-item__image-fallback">Kein Bild</div>
-                {/if}
-              </div>
-              <div class="evolution-item__content">
-                <span class="evolution-item__name">{tile.displayName}</span>
-                {#if tileTypes(tile).length > 0}
-                  <div class="evolution-item__types" aria-label={`${tile.displayName} Typen`}>
-                    {#each tileTypes(tile) as type (type.name)}
-                      <span class="type-chip">{type.name}</span>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </article>
-          {:else}
-            <button
-              class="evolution-item"
-              type="button"
-              onclick={() => {
-                onSelect(tile.id);
-              }}
-              aria-label={`Zu ${tile.displayName} wechseln`}
-            >
-              <div class="evolution-item__image-wrap">
-                {#if tile.image}
-                  <img class="evolution-item__image" src={tile.image} alt={tile.displayName} />
-                {:else}
-                  <div class="evolution-item__image-fallback">Kein Bild</div>
-                {/if}
-              </div>
-              <div class="evolution-item__content">
-                <span class="evolution-item__name">{tile.displayName}</span>
-                {#if tileTypes(tile).length > 0}
-                  <div class="evolution-item__types" aria-label={`${tile.displayName} Typen`}>
-                    {#each tileTypes(tile) as type (type.name)}
-                      <span class="type-chip">{type.name}</span>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </button>
-          {/if}
+          <EvolutionTile {tile} current={isCurrent(tile)} {onSelect} />
         </div>
       {/each}
     </div>
@@ -293,68 +181,7 @@
             <div class="evolution-stage__group-items">
               {#each group.items as tile (tile.id)}
                 <div class="evolution-stage__entry">
-                  {#if isCurrent(tile)}
-                    <article class="evolution-item evolution-item--current" aria-current="true">
-                      <div class="evolution-item__image-wrap">
-                        {#if tile.image}
-                          <img
-                            class="evolution-item__image"
-                            src={tile.image}
-                            alt={tile.displayName}
-                          />
-                        {:else}
-                          <div class="evolution-item__image-fallback">Kein Bild</div>
-                        {/if}
-                      </div>
-                      <div class="evolution-item__content">
-                        <span class="evolution-item__name">{tile.displayName}</span>
-                        {#if tileTypes(tile).length > 0}
-                          <div
-                            class="evolution-item__types"
-                            aria-label={`${tile.displayName} Typen`}
-                          >
-                            {#each tileTypes(tile) as type (type.name)}
-                              <span class="type-chip">{type.name}</span>
-                            {/each}
-                          </div>
-                        {/if}
-                      </div>
-                    </article>
-                  {:else}
-                    <button
-                      class="evolution-item"
-                      type="button"
-                      onclick={() => {
-                        onSelect(tile.id);
-                      }}
-                      aria-label={`Zu ${tile.displayName} wechseln`}
-                    >
-                      <div class="evolution-item__image-wrap">
-                        {#if tile.image}
-                          <img
-                            class="evolution-item__image"
-                            src={tile.image}
-                            alt={tile.displayName}
-                          />
-                        {:else}
-                          <div class="evolution-item__image-fallback">Kein Bild</div>
-                        {/if}
-                      </div>
-                      <div class="evolution-item__content">
-                        <span class="evolution-item__name">{tile.displayName}</span>
-                        {#if tileTypes(tile).length > 0}
-                          <div
-                            class="evolution-item__types"
-                            aria-label={`${tile.displayName} Typen`}
-                          >
-                            {#each tileTypes(tile) as type (type.name)}
-                              <span class="type-chip">{type.name}</span>
-                            {/each}
-                          </div>
-                        {/if}
-                      </div>
-                    </button>
-                  {/if}
+                  <EvolutionTile {tile} current={isCurrent(tile)} {onSelect} />
                 </div>
               {/each}
             </div>

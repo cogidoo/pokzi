@@ -783,14 +783,8 @@ describe('App', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Größe')).toBeInTheDocument();
     expect(screen.getByText('Gewicht')).toBeInTheDocument();
-    expect(screen.getByText('Aktuelle Stufe: Phase 1')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Zu Pichu wechseln' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Zu Raichu wechseln' })).toBeInTheDocument();
-    const evolutionHeading = screen.getByRole('heading', { name: 'Entwicklung' });
-    const factsHeading = screen.getByRole('heading', { name: 'Wichtige Fakten' });
-    expect(evolutionHeading.compareDocumentPosition(factsHeading)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Wichtige Fakten' })).toBeInTheDocument();
   });
 
   it('navigates to adjacent pokemon from evolution tiles', async () => {
@@ -1213,7 +1207,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Erneut versuchen' })).toBeInTheDocument();
   });
 
-  it('renders evolution tiles and fallback images when optional detail fields are missing', async () => {
+  it('renders evolution section when optional detail fields are missing', async () => {
     window.history.pushState({}, '', '/#/pokemon/2');
     fetchPokemonDetailMock.mockResolvedValueOnce({
       id: 2,
@@ -1245,8 +1239,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Bisaknosp' })).toBeInTheDocument();
     });
-    expect(screen.getAllByText('Kein Bild').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Zu Bisasam wechseln' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
   });
 
   it('shows detail loading state while detail request is pending', async () => {
@@ -1462,7 +1455,7 @@ describe('App', () => {
     expect(screen.queryByRole('heading', { name: 'Entwicklung' })).not.toBeInTheDocument();
   });
 
-  it('renders feature-05 shared path and branch groups with type chips', async () => {
+  it('renders feature-05 shared path and branch groups in evolution section', async () => {
     window.history.pushState({}, '', '/#/pokemon/133');
     fetchPokemonDetailMock.mockResolvedValueOnce(
       detailFixture({
@@ -1504,9 +1497,8 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Evoli' })).toBeInTheDocument();
     });
     expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
-    expect(screen.getByText('Wasser')).toBeInTheDocument();
-    expect(screen.getByText('Elektro')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Zu Evoli wechseln' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zu Aquana wechseln' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zu Blitza wechseln' })).toBeInTheDocument();
   });
 
   it('does not retry detail loading when retry handler runs outside detail route', async () => {

@@ -38,6 +38,7 @@
   let detailTransitioning = $state(false);
   let resultsScrolled = $state(false);
   let lastResultsScrollY = 0;
+  let lastTouchY = 0;
 
   let activeDetailAbort: AbortController | null = null;
   let nextDetailRequestToken = 0;
@@ -49,6 +50,16 @@
   const COMPACT_EXPAND_SCROLL_Y = 0;
   const UPWARD_INTENT_WINDOW_MS = 220;
   let lastUpwardIntentAt = -Infinity;
+  const compactSearch = $derived(uiState === 'success' && results.length > 0 && resultsScrolled);
+
+  /**
+   * Checks whether search results are currently visible and scroll-aware header logic is active.
+   *
+   * @returns True when the search route is in successful result mode.
+   */
+  function isSearchResultsContext(): boolean {
+    return route.kind === 'search' && uiState === 'success' && results.length > 0;
+  }
 
   /**
    * Formats Pokemon id for readable display labels.
@@ -178,6 +189,10 @@
    * Uses a small hysteresis so the header does not flicker near the threshold.
    */
   function syncResultsScrollState() {
+    if (!isSearchResultsContext()) {
+      return;
+    }
+
     const scrollY = Math.max(window.scrollY, 0);
     const isScrollingDown = scrollY > lastResultsScrollY;
     const isScrollingUp = scrollY < lastResultsScrollY;
@@ -199,12 +214,7 @@
    * This covers edge cases where compact mode removed the remaining scroll range.
    */
   function expandFromUpwardIntent() {
-    if (
-      route.kind !== 'search' ||
-      uiState !== 'success' ||
-      results.length === 0 ||
-      !resultsScrolled
-    ) {
+    if (!isSearchResultsContext() || !resultsScrolled) {
       return;
     }
 
@@ -231,6 +241,70 @@
   function isSearchResultsPageScrollable(): boolean {
     const root = document.scrollingElement ?? document.documentElement;
     return root.scrollHeight - window.innerHeight > 1;
+  }
+
+  /**
+   * Handles global scroll updates used for search-header compaction.
+   */
+  function onWindowScroll() {
+    syncResultsScrollState();
+  }
+
+  /**
+   * Handles global resize updates for scrollability edge cases.
+   */
+  function onWindowResize() {
+    syncResultsScrollState();
+  }
+
+  /**
+   * Handles wheel movement to detect explicit upward intent.
+   *
+   * @param event - Wheel interaction on the window.
+   */
+  function onWindowWheel(event: WheelEvent) {
+    if (event.deltaY < 0) {
+      expandFromUpwardIntent();
+    }
+  }
+
+  /**
+   * Stores the first touch Y-position for upward intent detection.
+   *
+   * @param event - Touch start event from the window.
+   */
+  function onWindowTouchStart(event: TouchEvent) {
+    const firstTouch = event.touches.item(0);
+    lastTouchY = firstTouch ? firstTouch.clientY : 0;
+  }
+
+  /**
+   * Detects downward finger movement that indicates upward-page intent.
+   *
+   * @param event - Touch move event from the window.
+   */
+  function onWindowTouchMove(event: TouchEvent) {
+    const firstTouch = event.touches.item(0);
+    if (!firstTouch) {
+      return;
+    }
+
+    const movingDown = firstTouch.clientY - lastTouchY > 4;
+    if (movingDown) {
+      expandFromUpwardIntent();
+    }
+    lastTouchY = firstTouch.clientY;
+  }
+
+  /**
+   * Synchronizes route and navigation context from popstate/hash changes.
+   *
+   * @param event - Browser history/navigation event.
+   */
+  function onLocationChange(event?: PopStateEvent | HashChangeEvent) {
+    const state = event instanceof PopStateEvent ? (event.state as unknown) : null;
+    openedFromResults = wasOpenedFromResults(state);
+    route = parseRoute(window.location.hash);
   }
 
   /**
@@ -372,72 +446,16 @@
   });
 
   $effect(() => {
-    if (route.kind !== 'search' || uiState !== 'success' || results.length === 0) {
+    if (!isSearchResultsContext()) {
       resultsScrolled = false;
       lastResultsScrollY = 0;
+      lastTouchY = 0;
       lastUpwardIntentAt = -Infinity;
       return;
     }
 
     lastResultsScrollY = Math.max(window.scrollY, 0);
     syncResultsScrollState();
-
-    const onScroll = () => {
-      syncResultsScrollState();
-    };
-    const onResize = () => {
-      syncResultsScrollState();
-    };
-    const onWheel = (event: WheelEvent) => {
-      if (event.deltaY < 0) {
-        expandFromUpwardIntent();
-      }
-    };
-    let lastTouchY = 0;
-    const onTouchStart = (event: TouchEvent) => {
-      const firstTouch = event.touches.item(0);
-      lastTouchY = firstTouch ? firstTouch.clientY : 0;
-    };
-    const onTouchMove = (event: TouchEvent) => {
-      const firstTouch = event.touches.item(0);
-      if (!firstTouch) {
-        return;
-      }
-      const movingDown = firstTouch.clientY - lastTouchY > 4;
-      if (movingDown) {
-        expandFromUpwardIntent();
-      }
-      lastTouchY = firstTouch.clientY;
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onResize);
-    window.addEventListener('wheel', onWheel, { passive: true });
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-    };
-  });
-
-  $effect(() => {
-    const onLocationChange = (event?: PopStateEvent | HashChangeEvent) => {
-      const state = event instanceof PopStateEvent ? (event.state as unknown) : null;
-      openedFromResults = wasOpenedFromResults(state);
-      route = parseRoute(window.location.hash);
-    };
-
-    window.addEventListener('popstate', onLocationChange);
-    window.addEventListener('hashchange', onLocationChange);
-    onLocationChange();
-    return () => {
-      window.removeEventListener('popstate', onLocationChange);
-      window.removeEventListener('hashchange', onLocationChange);
-    };
   });
 
   $effect(() => {
@@ -458,9 +476,18 @@
   });
 </script>
 
+<svelte:window
+  onscroll={onWindowScroll}
+  onresize={onWindowResize}
+  onwheel={onWindowWheel}
+  ontouchstart={onWindowTouchStart}
+  ontouchmove={onWindowTouchMove}
+  onpopstate={onLocationChange}
+  onhashchange={onLocationChange}
+/>
+
 <main class="app">
   {#if route.kind === 'search'}
-    {@const compactSearch = uiState === 'success' && results.length > 0 && resultsScrolled}
     <section class={`app__search-rail ${compactSearch ? 'app__search-rail--compact' : ''}`}>
       <div class="app__search-shell">
         <header class={`app__header ${compactSearch ? 'app__header--compact' : ''}`}>
