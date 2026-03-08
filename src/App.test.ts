@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
 
@@ -786,10 +786,10 @@ describe('App', () => {
     expect(screen.getByLabelText('KP 35')).toBeInTheDocument();
     expect(screen.getByText('Größe')).toBeInTheDocument();
     expect(screen.getByText('Gewicht')).toBeInTheDocument();
-    expect(screen.getByText('KP')).toBeInTheDocument();
-    expect(screen.getByText('35')).toBeInTheDocument();
     expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Wichtige Fakten' })).toBeInTheDocument();
+    const factsRegion = screen.getByRole('region', { name: 'Wichtige Fakten' });
+    expect(factsRegion).toBeInTheDocument();
+    expect(within(factsRegion).queryByText('KP')).not.toBeInTheDocument();
   });
 
   it('navigates to adjacent pokemon from evolution tiles', async () => {
@@ -861,7 +861,7 @@ describe('App', () => {
     expect(window.location.hash).toBe('#/pokemon/26');
   });
 
-  it('does not render a KP fact card when base HP is unavailable', async () => {
+  it('does not render a KP fact card even when base HP is available', async () => {
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock.mockResolvedValueOnce({
       id: 25,
@@ -886,7 +886,8 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('KP')).not.toBeInTheDocument();
+    const factsRegion = screen.getByRole('region', { name: 'Wichtige Fakten' });
+    expect(within(factsRegion).queryByText('KP')).not.toBeInTheDocument();
   });
 
   it('does not render a KP badge near the hero name when base HP is unavailable', async () => {

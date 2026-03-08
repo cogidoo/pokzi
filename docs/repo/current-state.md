@@ -9,7 +9,7 @@ The current repo includes:
 - live-updating search results below the input
 - touch-friendly result cards with German labels
 - scroll-reactive compact/expanded header behavior in search results view
-- dedicated Pokemon detail pages with clear `KP` display in key facts when available from API
+- dedicated Pokemon detail pages with clear `KP` display near the name when available from API
 - stage-based visual evolution board (`Basis`, `Phase 1`, `Phase 2`) inside the detail page
 - branch-readable evolution summary with subtle directional cues, German type chips, and visible `KP` on evolution items (when API data exists)
 - hash-based deep linking for Pokemon detail pages (`#/pokemon/:id`)

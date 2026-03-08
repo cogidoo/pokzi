@@ -679,12 +679,6 @@
           <section class="detail__section detail__section--facts" aria-label="Wichtige Fakten">
             <h2 class="detail__section-title">Wichtige Fakten</h2>
             <div class="detail__facts">
-              {#if detail.baseHp !== null && detail.baseHp !== undefined}
-                <article class="detail-fact">
-                  <p class="detail-fact__label">KP</p>
-                  <p class="detail-fact__value">{detail.baseHp}</p>
-                </article>
-              {/if}
               <article class="detail-fact">
                 <p class="detail-fact__label">Größe</p>
                 <p class="detail-fact__value">{formatMetric(detail.heightMeters)} m</p>
