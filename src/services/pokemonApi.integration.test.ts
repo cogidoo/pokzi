@@ -1,5 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GERMAN_SPECIES_NAME_BY_ID } from '../data/pokemonGermanSpeciesIndex';
+
+const MOCK_GERMAN_SPECIES_NAME_BY_ID = Object.fromEntries(
+  Array.from({ length: 1400 }, (_, index) => [index + 1, `Poke${String(index + 1)}`]),
+) as Record<number, string>;
+
+MOCK_GERMAN_SPECIES_NAME_BY_ID[7] = 'Schiggy';
+MOCK_GERMAN_SPECIES_NAME_BY_ID[11] = 'Safcon';
+MOCK_GERMAN_SPECIES_NAME_BY_ID[25] = 'Pikachu';
+MOCK_GERMAN_SPECIES_NAME_BY_ID[133] = 'Evoli';
+MOCK_GERMAN_SPECIES_NAME_BY_ID[151] = 'Mew';
+MOCK_GERMAN_SPECIES_NAME_BY_ID[672] = 'Mähikel';
+
+for (let id = 200; id <= 240; id += 1) {
+  MOCK_GERMAN_SPECIES_NAME_BY_ID[id] = `Ramon-${String(id)}`;
+}
+
+vi.mock('../data/pokemonGermanSpeciesIndex', () => {
+  return {
+    GERMAN_SPECIES_NAME_BY_ID: MOCK_GERMAN_SPECIES_NAME_BY_ID,
+  };
+});
 
 function makePokemon(id: number, name: string, image = `https://img/${name}.png`) {
   return {
@@ -913,7 +933,7 @@ describe('searchPokemon (German names)', () => {
   });
 
   it('caps german-name matches at 20', async () => {
-    const candidateIds = Object.entries(GERMAN_SPECIES_NAME_BY_ID)
+    const candidateIds = Object.entries(MOCK_GERMAN_SPECIES_NAME_BY_ID)
       .filter(([, germanName]) => germanName.toLowerCase().includes('ra'))
       .slice(0, 30)
       .map(([id]) => Number(id));
@@ -939,7 +959,7 @@ describe('searchPokemon (German names)', () => {
 
       const speciesId = /\/pokemon-species\/(\d+)\/?$/.exec(url)?.[1];
       if (speciesId) {
-        const germanName = GERMAN_SPECIES_NAME_BY_ID[Number(speciesId)];
+        const germanName = MOCK_GERMAN_SPECIES_NAME_BY_ID[Number(speciesId)];
         return Promise.resolve(asResponse(speciesNames(germanName)));
       }
 
@@ -1044,7 +1064,7 @@ describe('searchPokemon (German names)', () => {
     expect(allCalls.length).toBeLessThanOrEqual(4);
   });
 
-  it('uses front_default image when official artwork is missing', async () => {
+  it('uses front_default image when official artwork is missing for numeric search', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
 
@@ -1077,8 +1097,9 @@ describe('searchPokemon (German names)', () => {
     });
 
     const { searchPokemon } = await import('./pokemonApi');
-    const [result] = await searchPokemon('bisa');
+    const [result] = await searchPokemon('1');
 
+    expect(result).toBeDefined();
     expect(result.image).toBe('https://img/front-bulbasaur.png');
   });
 
