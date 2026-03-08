@@ -46,16 +46,8 @@ export interface PokemonEvolutionBranchGroup {
  */
 export interface PokemonEvolutionSummary {
   stage: 'Basis' | 'Phase 1' | 'Phase 2';
-  sharedPath?: PokemonEvolutionTile[];
-  branchGroups?: PokemonEvolutionBranchGroup[];
-  /**
-   * Transitional compatibility field for legacy tests/components.
-   */
-  previous?: PokemonEvolutionTile[];
-  /**
-   * Transitional compatibility field for legacy tests/components.
-   */
-  next?: PokemonEvolutionTile[];
+  sharedPath: PokemonEvolutionTile[];
+  branchGroups: PokemonEvolutionBranchGroup[];
 }
 
 /**

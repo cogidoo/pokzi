@@ -26,7 +26,7 @@ The detail page turns a search result into a simple learning moment without forc
 - Dedicated detail page for one selected Pokemon
 - Prominent hero area with artwork, German name, ID, and German type chips
 - Curated key facts section
-- Evolution summary with visual navigation across the visible chain path
+- Evolution summary with stage-based visual navigation across the visible chain path
 - Back action to the preserved search/results context
 - Loading, error, and retry states for detail fetch
 - Optional short German flavor text integrated into the hero when a clean German localized entry is available
@@ -87,7 +87,7 @@ Presentation rules:
 ## Evolution Summary
 
 - Show the current evolution stage label.
-- Show the current Pokemon inside a compact visual evolution sequence.
+- Show the current Pokemon inside a compact stage board (`Basis`, `Phase 1`, `Phase 2`).
 - Show every earlier stage in the same chain before the current Pokemon.
 - Show every reachable later stage after the current Pokemon.
 - Support direct navigation to every visible non-current evolution item.

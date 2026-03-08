@@ -17,7 +17,7 @@ The user sees the evolution path as a simple visual sequence instead of plain te
 
 ## Scope
 
-- Visual evolution sequence inside the Pokemon detail page
+- Stage-based evolution board inside the Pokemon detail page
 - Evolution items with official artwork and German display names
 - Clear highlight for the currently open Pokemon
 - Direct navigation from evolution items to the tapped Pokemon detail page
@@ -39,7 +39,7 @@ The user sees the evolution path as a simple visual sequence instead of plain te
 ## Primary Flow
 
 1. User opens a Pokemon detail page.
-2. The page shows a compact evolution section with images and German names.
+2. The page shows a compact stage board with images and German names.
 3. The current Pokemon is visibly highlighted inside the sequence.
 4. The user taps any earlier or later evolution item.
 5. The app opens the tapped Pokemon detail page immediately.
@@ -97,8 +97,9 @@ The user sees the evolution path as a simple visual sequence instead of plain te
 ### Evolution Section Composition
 
 - The section only appears when at least one evolution relation exists.
-- Linear chains should read left-to-right or top-to-bottom in one obvious order.
+- Linear chains should read through a clear stage order (`Basis` -> `Phase 1` -> `Phase 2`).
 - The section should stay compact enough to scan in one glance on iPad landscape.
+- Use subtle directional hints (for example lightweight arrows) between stage areas.
 - The composition should preserve chronological readability even when the visible chain contains more than three items or later branches.
 
 Implementation notes:
@@ -123,7 +124,7 @@ Implementation notes:
 
 ### Linear And Branching Layout
 
-- A linear chain should appear as one compact visual sequence.
+- A linear chain should appear as one compact stage progression.
 - The ordered sequence must include all visible earlier and later stages for the current path.
 - Later branches may wrap into simple stacked groups when needed, but deeper reachable stages must remain visible.
 - No graph-like connectors, technical conditions, or tree-explorer patterns should appear.

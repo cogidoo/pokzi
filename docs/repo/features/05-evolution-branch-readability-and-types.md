@@ -17,7 +17,7 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 ## Scope
 
 - Clear branch-readable composition for visible evolution paths in detail view
-- One persistent shared path that keeps earlier stages and current Pokemon obvious
+- One persistent stage board (`Basis`, `Phase 1`, `Phase 2`) that keeps order obvious
 - Branch groups for reachable later evolution options when multiple paths exist
 - German type chips on each evolution item (`1-2` chips)
 - Stable tap navigation behavior for every visible non-current evolution item
@@ -37,7 +37,7 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 ## Primary Flow
 
 1. User opens a Pokemon detail page with evolution data.
-2. App shows one ordered evolution summary with a clear shared path and the current evolution stage label.
+2. App shows one ordered evolution summary with a clear stage board and the current evolution stage label.
 3. If later branches exist, app shows all reachable options in grouped, readable order based on the PokeAPI evolution-chain order.
 4. Each visible evolution item shows image, German name, and German type chips.
 5. User taps any non-current evolution item and opens that Pokemon detail page in the same detail context.
@@ -47,6 +47,7 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 - Keep chronological order explicit: earlier stages first, then current, then reachable later stages.
 - Keep one visually clear shared path from earliest visible stage to the current Pokemon.
 - Show later branching options as grouped follow-up blocks tied to the branching point.
+- Keep directional hints subtle and calm; no heavy connector graphics.
 - Keep branch-group order stable by following the PokeAPI `evolves_to` array order of the branching node.
 - Keep the order inside each branch chronological from the nearest later stage to deeper later stages.
 - Keep all visible non-current evolution items as full-tile tap targets.
@@ -99,8 +100,8 @@ The evolution section stays easy to scan on iPad even when chains branch, and ch
 ### Evolution Section Composition
 
 - The section appears as one compact card-like block below the hero and before the key facts.
-- The block reads in three clear layers: section header, shared path, optional branch groups.
-- The shared path remains the visual spine of the section and always includes the current Pokemon.
+- The block reads in three clear layers: section header, stage board, optional branch groups.
+- The stage board remains the visual spine of the section and always includes the current Pokemon.
 - Later branch options appear only after the shared path, never mixed back into earlier stages.
 - Branch groups must feel connected to the branching point without turning into a graph view.
 

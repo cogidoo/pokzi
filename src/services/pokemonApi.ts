@@ -134,15 +134,11 @@ function emptyEvolutionSummary(): {
   stage: PokemonEvolutionStage;
   sharedPath: PokemonEvolutionTile[];
   branchGroups: PokemonEvolutionBranchGroup[];
-  previous: PokemonEvolutionTile[];
-  next: PokemonEvolutionTile[];
 } {
   return {
     stage: 'Basis',
     sharedPath: [],
     branchGroups: [],
-    previous: [],
-    next: [],
   };
 }
 
@@ -567,8 +563,6 @@ async function resolveEvolutionSummary(
   stage: PokemonEvolutionStage;
   sharedPath: PokemonEvolutionTile[];
   branchGroups: PokemonEvolutionBranchGroup[];
-  previous: PokemonEvolutionTile[];
-  next: PokemonEvolutionTile[];
 }> {
   const chainUrl = species?.evolution_chain?.url;
   if (!chainUrl) {
@@ -597,26 +591,11 @@ async function resolveEvolutionSummary(
       )
     ).filter((item): item is PokemonEvolutionTile => item !== null);
     const branchGroups = await resolveBranchGroups(currentNode, currentPokemonId, signal);
-    const previous = sharedPath
-      .slice(0, -1)
-      .map((item) => ({ id: item.id, displayName: item.displayName, image: item.image }));
-    const next = Array.from(
-      new Map(
-        branchGroups.flatMap((group) =>
-          group.items.map(
-            (item) =>
-              [item.id, { id: item.id, displayName: item.displayName, image: item.image }] as const,
-          ),
-        ),
-      ).values(),
-    );
 
     return {
       stage: mapDepthToEvolutionStage(path.length - 1),
       sharedPath,
       branchGroups,
-      previous, // Deprecated compatibility field.
-      next, // Deprecated compatibility field.
     };
   } catch (error) {
     if (isHttpStatusError(error, 404)) {

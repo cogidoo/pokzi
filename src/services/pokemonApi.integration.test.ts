@@ -1339,8 +1339,16 @@ describe('searchPokemon (German names)', () => {
     expect(detail?.flavorText).toBe('Wenn mehrere POKeMON sich versammeln, entladen sie Strom.');
     expect(detail?.types[0]?.name).toBe('Elektro');
     expect(detail?.evolution.stage).toBe('Phase 1');
-    expect(detail?.evolution.previous).toEqual([{ id: 172, displayName: 'Pichu', image: null }]);
-    expect(detail?.evolution.next).toEqual([{ id: 26, displayName: 'Raichu', image: null }]);
+    expect(detail?.evolution.sharedPath).toEqual([
+      { id: 172, displayName: 'Pichu', image: null, types: [] },
+      { id: 25, displayName: 'Pikachu', image: null, types: [] },
+    ]);
+    expect(detail?.evolution.branchGroups).toEqual([
+      {
+        originId: 25,
+        items: [{ id: 26, displayName: 'Raichu', image: null, types: [] }],
+      },
+    ]);
   });
 
   it('returns null when detail endpoint responds with 404', async () => {
@@ -1379,8 +1387,8 @@ describe('searchPokemon (German names)', () => {
     const detail = await fetchPokemonDetail(25);
 
     expect(detail?.evolution.stage).toBe('Basis');
-    expect(detail?.evolution.previous).toEqual([]);
-    expect(detail?.evolution.next).toEqual([]);
+    expect(detail?.evolution.sharedPath).toEqual([]);
+    expect(detail?.evolution.branchGroups).toEqual([]);
   });
 
   it('falls back to Basis detail evolution when evolution chain endpoint is 404', async () => {
@@ -1406,8 +1414,8 @@ describe('searchPokemon (German names)', () => {
     const detail = await fetchPokemonDetail(25);
 
     expect(detail?.evolution.stage).toBe('Basis');
-    expect(detail?.evolution.previous).toEqual([]);
-    expect(detail?.evolution.next).toEqual([]);
+    expect(detail?.evolution.sharedPath).toEqual([]);
+    expect(detail?.evolution.branchGroups).toEqual([]);
   });
 
   it('throws on non-404 errors while fetching detail payload', async () => {
@@ -1519,8 +1527,10 @@ describe('searchPokemon (German names)', () => {
 
     expect(detail).not.toBeNull();
     expect(detail?.evolution.stage).toBe('Phase 1');
-    expect(detail?.evolution.previous).toEqual([]);
-    expect(detail?.evolution.next).toEqual([]);
+    expect(detail?.evolution.sharedPath).toEqual([
+      { id: 25, displayName: 'Pikachu', image: null, types: [] },
+    ]);
+    expect(detail?.evolution.branchGroups).toEqual([]);
   });
 
   it('hides evolution items when chain nodes do not provide species URLs', async () => {
@@ -1561,8 +1571,10 @@ describe('searchPokemon (German names)', () => {
     const detail = await fetchPokemonDetail(25);
 
     expect(detail?.evolution.stage).toBe('Phase 1');
-    expect(detail?.evolution.previous).toEqual([]);
-    expect(detail?.evolution.next).toEqual([]);
+    expect(detail?.evolution.sharedPath).toEqual([
+      { id: 25, displayName: 'Pikachu', image: null, types: [] },
+    ]);
+    expect(detail?.evolution.branchGroups).toEqual([]);
   });
 
   it('keeps later branch groups when current chain node URL is malformed', async () => {
@@ -1632,8 +1644,13 @@ describe('searchPokemon (German names)', () => {
         ],
       },
     ]);
-    expect(detail?.evolution.next).toEqual([
-      { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+    expect(detail?.evolution.sharedPath).toEqual([
+      {
+        id: 172,
+        displayName: 'pichu',
+        image: null,
+        types: [],
+      },
     ]);
   });
 
@@ -1662,8 +1679,8 @@ describe('searchPokemon (German names)', () => {
     expect(detail).not.toBeNull();
     expect(detail?.displayName).toBe('Pikachu');
     expect(detail?.evolution.stage).toBe('Basis');
-    expect(detail?.evolution.previous).toEqual([]);
-    expect(detail?.evolution.next).toEqual([]);
+    expect(detail?.evolution.sharedPath).toEqual([]);
+    expect(detail?.evolution.branchGroups).toEqual([]);
   });
 
   it('does not cache degraded detail payload when evolution lookup fails transiently', async () => {
@@ -1738,9 +1755,19 @@ describe('searchPokemon (German names)', () => {
     const first = await fetchPokemonDetail(25);
     const second = await fetchPokemonDetail(25);
 
-    expect(first?.evolution.next).toEqual([]);
-    expect(second?.evolution.next).toEqual([
-      { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+    expect(first?.evolution.branchGroups).toEqual([]);
+    expect(second?.evolution.branchGroups).toEqual([
+      {
+        originId: 25,
+        items: [
+          {
+            id: 26,
+            displayName: 'Raichu',
+            image: 'https://img/raichu.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+      },
     ]);
 
     const pokemon25Calls = vi
@@ -1820,8 +1847,8 @@ describe('searchPokemon (German names)', () => {
     expect(detail).not.toBeNull();
     expect(detail?.displayName).toBe('Pikachu');
     expect(detail?.evolution.stage).toBe('Basis');
-    expect(detail?.evolution.previous).toEqual([]);
-    expect(detail?.evolution.next).toEqual([]);
+    expect(detail?.evolution.sharedPath).toEqual([]);
+    expect(detail?.evolution.branchGroups).toEqual([]);
   });
 
   it('keeps abort behavior when the evolution fetch is aborted by caller signal', async () => {
@@ -1958,7 +1985,7 @@ describe('searchPokemon (German names)', () => {
     expect(detail?.evolution.stage).toBe('Phase 2');
   });
 
-  it('uses null previous evolution for root chain entry and still resolves next evolution', async () => {
+  it('uses root-only shared path and still resolves later branch groups', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
 
@@ -2064,9 +2091,24 @@ describe('searchPokemon (German names)', () => {
     const detail = await fetchPokemonDetail(1);
 
     expect(detail?.evolution.stage).toBe('Basis');
-    expect(detail?.evolution.next).toEqual([
-      { id: 2, displayName: 'Bisaknosp', image: 'https://img/ivysaur.png' },
-      { id: 3, displayName: 'Bisaflor', image: 'https://img/venusaur.png' },
+    expect(detail?.evolution.branchGroups).toEqual([
+      {
+        originId: 1,
+        items: [
+          {
+            id: 2,
+            displayName: 'Bisaknosp',
+            image: 'https://img/ivysaur.png',
+            types: [{ name: 'Elektro' }],
+          },
+          {
+            id: 3,
+            displayName: 'Bisaflor',
+            image: 'https://img/venusaur.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+      },
     ]);
   });
 
@@ -2152,17 +2194,10 @@ describe('searchPokemon (German names)', () => {
     }
 
     expect(detail.evolution.stage).toBe('Basis');
-    expect((detail.evolution.sharedPath ?? []).map((item) => item.displayName)).toEqual(['Evoli']);
+    expect(detail.evolution.sharedPath.map((item) => item.displayName)).toEqual(['Evoli']);
     expect(
-      (detail.evolution.branchGroups ?? []).map((group) =>
-        group.items.map((item) => item.displayName),
-      ),
+      detail.evolution.branchGroups.map((group) => group.items.map((item) => item.displayName)),
     ).toEqual([['Aquana', 'Tiefaquana'], ['Blitza']]);
-    expect(detail.evolution.next).toEqual([
-      { id: 134, displayName: 'Aquana', image: 'https://img/vaporeon.png' },
-      { id: 10001, displayName: 'Tiefaquana', image: 'https://img/deepvaporeon.png' },
-      { id: 135, displayName: 'Blitza', image: 'https://img/jolteon.png' },
-    ]);
   });
 
   it('splits branch groups when branching starts after one linear intermediate stage', async () => {
@@ -2274,10 +2309,41 @@ describe('searchPokemon (German names)', () => {
         ],
       },
     ]);
-    expect(detail?.evolution.next).toEqual([
-      { id: 2, displayName: 'Mitte', image: 'https://img/midmon.png' },
-      { id: 3, displayName: 'Ast Eins', image: 'https://img/branchone.png' },
-      { id: 4, displayName: 'Ast Zwei', image: 'https://img/branchtwo.png' },
+    expect(detail?.evolution.branchGroups).toEqual([
+      {
+        originId: 1,
+        items: [
+          {
+            id: 2,
+            displayName: 'Mitte',
+            image: 'https://img/midmon.png',
+            types: [{ name: 'Elektro' }],
+          },
+          {
+            id: 3,
+            displayName: 'Ast Eins',
+            image: 'https://img/branchone.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+      },
+      {
+        originId: 1,
+        items: [
+          {
+            id: 2,
+            displayName: 'Mitte',
+            image: 'https://img/midmon.png',
+            types: [{ name: 'Elektro' }],
+          },
+          {
+            id: 4,
+            displayName: 'Ast Zwei',
+            image: 'https://img/branchtwo.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+      },
     ]);
   });
 

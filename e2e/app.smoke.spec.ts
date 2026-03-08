@@ -505,6 +505,140 @@ async function routeEvolutionDetailFailure(page: Page) {
   });
 }
 
+async function routePhase2DenseStack(page: Page) {
+  await page.route('https://pokeapi.co/api/v2/**', async (route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname === '/api/v2/pokemon/2') {
+      return json(route, {
+        id: 2,
+        name: 'poliwhirl',
+        height: 10,
+        weight: 200,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/quaputzi.png' },
+          },
+        },
+        types: [{ type: { name: 'water' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/2') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Poliwhirl' },
+          { language: { name: 'de' }, name: 'Quaputzi' },
+        ],
+        evolution_chain: { url: 'https://pokeapi.co/api/v2/evolution-chain/201/' },
+      });
+    }
+
+    if (url.pathname === '/api/v2/evolution-chain/201') {
+      return json(route, {
+        chain: {
+          species: { name: 'poliwag', url: 'https://pokeapi.co/api/v2/pokemon-species/1/' },
+          evolves_to: [
+            {
+              species: { name: 'poliwhirl', url: 'https://pokeapi.co/api/v2/pokemon-species/2/' },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'poliwrath',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/3/',
+                  },
+                  evolves_to: [],
+                },
+                {
+                  species: {
+                    name: 'politoed',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/4/',
+                  },
+                  evolves_to: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/1') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Poliwag' },
+          { language: { name: 'de' }, name: 'Quapsel' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/3') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Poliwrath' },
+          { language: { name: 'de' }, name: 'Quappo' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/4') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Politoed' },
+          { language: { name: 'de' }, name: 'Quaxo' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/poliwag') {
+      return json(route, {
+        id: 1,
+        name: 'poliwag',
+        height: 6,
+        weight: 120,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/quapsel.png' },
+          },
+        },
+        types: [{ type: { name: 'water' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/poliwrath') {
+      return json(route, {
+        id: 3,
+        name: 'poliwrath',
+        height: 13,
+        weight: 540,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/quappo.png' },
+          },
+        },
+        types: [{ type: { name: 'water' } }, { type: { name: 'fighting' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/politoed') {
+      return json(route, {
+        id: 4,
+        name: 'politoed',
+        height: 11,
+        weight: 339,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/quaxo.png' },
+          },
+        },
+        types: [{ type: { name: 'water' } }],
+      });
+    }
+
+    return json(route, {}, 404);
+  });
+}
+
 async function routeTextSearchWithCount(page: Page, count: number) {
   const entries = Array.from({ length: count }, (_, index) => {
     const id = index + 1;
@@ -706,12 +840,64 @@ test('Feature 5 zeigt verzweigte Pfade nach linearem Zwischenschritt als getrenn
   await page.goto('/#/pokemon/1');
 
   await expect(page.getByRole('heading', { name: 'Wurzel' })).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Entwicklungsweg' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Entwicklungszweig 1' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Entwicklungszweig 2' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Zu Ast Eins wechseln' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Zu Ast Zwei wechseln' })).toBeVisible();
+  await expect(page.getByLabel('Entwicklungsstufen')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Phase 2' })).toBeVisible();
+  const branchOne = page.getByRole('button', { name: 'Zu Ast Eins wechseln' });
+  const branchTwo = page.getByRole('button', { name: 'Zu Ast Zwei wechseln' });
+  await expect(branchOne).toBeVisible();
+  await expect(branchTwo).toBeVisible();
+  const branchOneBox = await branchOne.boundingBox();
+  const branchTwoBox = await branchTwo.boundingBox();
+  expect(branchOneBox).not.toBeNull();
+  expect(branchTwoBox).not.toBeNull();
+  const boxesOverlap =
+    !!branchOneBox &&
+    !!branchTwoBox &&
+    branchOneBox.x < branchTwoBox.x + branchTwoBox.width &&
+    branchOneBox.x + branchOneBox.width > branchTwoBox.x &&
+    branchOneBox.y < branchTwoBox.y + branchTwoBox.height &&
+    branchOneBox.y + branchOneBox.height > branchTwoBox.y;
+  expect(boxesOverlap).toBe(false);
   await expect(page.getByText('Elektro').first()).toBeVisible();
+});
+
+test('Phase-2-Mehrfachentwicklung bleibt lesbar und innerhalb der Stage-Kachel', async ({
+  page,
+}) => {
+  await routePhase2DenseStack(page);
+  await page.setViewportSize({ width: 1366, height: 1100 });
+  await page.goto('/#/pokemon/2');
+
+  await expect(page.getByRole('heading', { name: 'Quaputzi' })).toBeVisible();
+  const phase2Section = page.getByRole('region', { name: 'Phase 2' });
+  await expect(phase2Section).toBeVisible();
+
+  const quappo = page.getByRole('button', { name: 'Zu Quappo wechseln' });
+  const quaxo = page.getByRole('button', { name: 'Zu Quaxo wechseln' });
+  await expect(quappo).toBeVisible();
+  await expect(quaxo).toBeVisible();
+
+  const phase2Box = await phase2Section.boundingBox();
+  const quappoBox = await quappo.boundingBox();
+  const quaxoBox = await quaxo.boundingBox();
+
+  expect(phase2Box).not.toBeNull();
+  expect(quappoBox).not.toBeNull();
+  expect(quaxoBox).not.toBeNull();
+
+  if (!phase2Box || !quappoBox || !quaxoBox) {
+    return;
+  }
+
+  expect(quappoBox.x + quappoBox.width).toBeLessThanOrEqual(phase2Box.x + phase2Box.width + 1);
+  expect(quaxoBox.x + quaxoBox.width).toBeLessThanOrEqual(phase2Box.x + phase2Box.width + 1);
+
+  const boxesOverlap =
+    quappoBox.x < quaxoBox.x + quaxoBox.width &&
+    quappoBox.x + quappoBox.width > quaxoBox.x &&
+    quappoBox.y < quaxoBox.y + quaxoBox.height &&
+    quappoBox.y + quappoBox.height > quaxoBox.y;
+  expect(boxesOverlap).toBe(false);
 });
 
 test('Fehlgeschlagener Evolutionswechsel hält URL und sichtbare Details synchron', async ({

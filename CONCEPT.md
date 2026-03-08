@@ -32,8 +32,8 @@ The current repo foundation centers on:
 - tolerant German-name search input handling (umlaut/ss variants and minor typos)
 - a clear, touch-friendly results list
 - a dedicated Pokemon detail view
-- simple visual evolution chain inside the detail flow
-- readable evolution branching with German type chips per visible evolution item
+- stage-based visual evolution board inside the detail flow
+- readable evolution branching with subtle directional cues and German type chips per visible evolution item
 - strong language, touch, and clarity constraints for children
 
 ## Repo Documents

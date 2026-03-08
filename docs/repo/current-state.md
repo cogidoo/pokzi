@@ -10,8 +10,8 @@ The current repo includes:
 - touch-friendly result cards with German labels
 - scroll-reactive compact/expanded header behavior in search results view
 - dedicated Pokemon detail pages
-- simple visual evolution chain inside the detail page
-- branch-readable evolution summary with German type chips on evolution items
+- stage-based visual evolution board (`Basis`, `Phase 1`, `Phase 2`) inside the detail page
+- branch-readable evolution summary with subtle directional cues and German type chips on evolution items
 - hash-based deep linking for Pokemon detail pages (`#/pokemon/:id`)
 - back navigation to preserved search and results context when detail was opened from results
 - back navigation from direct detail deep links to the neutral search start state

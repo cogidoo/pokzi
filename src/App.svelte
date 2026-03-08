@@ -13,13 +13,7 @@
   } from './features/navigation/hashRouter';
   import { SearchController, type SearchUiState } from './features/search/searchController';
   import { fetchPokemonDetail, isSearchPokemonError, searchPokemon } from './services/pokemonApi';
-  import type {
-    PokemonDetail,
-    PokemonEvolutionBranchGroup,
-    PokemonEvolutionSummary,
-    PokemonEvolutionTile,
-    PokemonSearchResult,
-  } from './types/pokemon';
+  import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
 
   /*
    * Main application shell that coordinates search input, async lookup,
@@ -30,15 +24,6 @@
    * UI states for the detail view.
    */
   type DetailUiState = 'loading' | 'success' | 'empty' | 'error';
-
-  /**
-   * Normalized evolution view used by the detail component tree.
-   */
-  interface EvolutionSummaryView {
-    stage: PokemonEvolutionSummary['stage'];
-    sharedPath: PokemonEvolutionTile[];
-    branchGroups: PokemonEvolutionBranchGroup[];
-  }
 
   let query = $state('');
   let uiState = $state<SearchUiState>('idle');
@@ -90,46 +75,14 @@
   }
 
   /**
-   * Normalizes legacy and feature-05 evolution payloads for one rendering contract.
-   *
-   * @param pokemon - Detail payload shown in the detail view.
-   * @returns Evolution summary with shared path and ordered branch groups.
-   */
-  function toEvolutionView(pokemon: PokemonDetail): EvolutionSummaryView {
-    if (pokemon.evolution.sharedPath && pokemon.evolution.branchGroups) {
-      return {
-        stage: pokemon.evolution.stage,
-        sharedPath: pokemon.evolution.sharedPath,
-        branchGroups: pokemon.evolution.branchGroups,
-      };
-    }
-
-    const currentTile: PokemonEvolutionTile = {
-      id: pokemon.id,
-      displayName: pokemon.displayName,
-      image: pokemon.image,
-      types: pokemon.types.slice(0, 2),
-    };
-    const previous = pokemon.evolution.previous ?? [];
-    const next = pokemon.evolution.next ?? [];
-
-    return {
-      stage: pokemon.evolution.stage,
-      sharedPath: [...previous, currentTile],
-      branchGroups: next.map((item) => ({ originId: currentTile.id, items: [item] })),
-    };
-  }
-
-  /**
    * Checks whether detail data contains visible evolution relations.
    *
    * @param pokemon - Detail payload shown in the detail view.
    * @returns True if at least one related evolution is available.
    */
   function hasEvolutionRelations(pokemon: PokemonDetail): boolean {
-    const evolution = toEvolutionView(pokemon);
-    const hasSharedRelation = evolution.sharedPath.length > 1;
-    const hasBranches = evolution.branchGroups.some((group) => group.items.length > 0);
+    const hasSharedRelation = pokemon.evolution.sharedPath.length > 1;
+    const hasBranches = pokemon.evolution.branchGroups.some((group) => group.items.length > 0);
     return hasSharedRelation || hasBranches;
   }
 
@@ -654,9 +607,9 @@
           </section>
 
           {#if hasEvolutionRelations(detail)}
-            <section class="detail__section" aria-label="Entwicklung">
+            <section class="detail__section detail__section--evolution" aria-label="Entwicklung">
               <EvolutionSummary
-                evolution={toEvolutionView(detail)}
+                evolution={detail.evolution}
                 currentPokemonId={detail.id}
                 onSelect={openEvolutionDetail}
               />
@@ -676,7 +629,7 @@
             </section>
           {/if}
 
-          <section class="detail__section" aria-label="Wichtige Fakten">
+          <section class="detail__section detail__section--facts" aria-label="Wichtige Fakten">
             <h2 class="detail__section-title">Wichtige Fakten</h2>
             <div class="detail__facts">
               <article class="detail-fact">

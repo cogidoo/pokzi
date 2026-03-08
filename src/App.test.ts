@@ -94,8 +94,21 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
     flavorText: 'Ein kurzer deutscher Flavor-Text.',
     evolution: {
       stage: 'Phase 1',
-      previous: [{ id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' }],
-      next: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+      sharedPath: [
+        { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+        {
+          id: 25,
+          displayName: 'Pikachu',
+          image: 'https://img/pikachu.png',
+          types: [{ name: 'Elektro' }],
+        },
+      ],
+      branchGroups: [
+        {
+          originId: 25,
+          items: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+        },
+      ],
     },
     ...overrides,
   };
@@ -725,8 +738,21 @@ describe('App', () => {
       flavorText: 'Wenn mehrere dieser POKeMON sich versammeln, entladen sie Strom.',
       evolution: {
         stage: 'Phase 1',
-        previous: [{ id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' }],
-        next: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+        sharedPath: [
+          { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+          {
+            id: 25,
+            displayName: 'Pikachu',
+            image: 'https://img/pikachu.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+        branchGroups: [
+          {
+            originId: 25,
+            items: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+          },
+        ],
       },
     });
 
@@ -782,8 +808,21 @@ describe('App', () => {
         flavorText: null,
         evolution: {
           stage: 'Phase 1',
-          previous: [{ id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' }],
-          next: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+          sharedPath: [
+            { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+            {
+              id: 25,
+              displayName: 'Pikachu',
+              image: 'https://img/pikachu.png',
+              types: [{ name: 'Elektro' }],
+            },
+          ],
+          branchGroups: [
+            {
+              originId: 25,
+              items: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+            },
+          ],
         },
       })
       .mockResolvedValueOnce({
@@ -798,8 +837,12 @@ describe('App', () => {
         flavorText: null,
         evolution: {
           stage: 'Phase 2',
-          previous: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
-          next: [],
+          sharedPath: [
+            { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+            { id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' },
+            { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+          ],
+          branchGroups: [],
         },
       });
 
@@ -835,8 +878,21 @@ describe('App', () => {
         flavorText: 'Ein stabiler Rahmen.',
         evolution: {
           stage: 'Phase 1',
-          previous: [{ id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' }],
-          next: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+          sharedPath: [
+            { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+            {
+              id: 25,
+              displayName: 'Pikachu',
+              image: 'https://img/pikachu.png',
+              types: [{ name: 'Elektro' }],
+            },
+          ],
+          branchGroups: [
+            {
+              originId: 25,
+              items: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+            },
+          ],
         },
       })
       .mockImplementationOnce(() => nextDetailPending.promise);
@@ -864,8 +920,12 @@ describe('App', () => {
       flavorText: null,
       evolution: {
         stage: 'Phase 2',
-        previous: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
-        next: [],
+        sharedPath: [
+          { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+          { id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' },
+          { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+        ],
+        branchGroups: [],
       },
     });
 
@@ -874,7 +934,7 @@ describe('App', () => {
     });
   });
 
-  it('navigates to previous pokemon from evolution tiles', async () => {
+  it('navigates to earlier pokemon from evolution tiles', async () => {
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock
       .mockResolvedValueOnce({
@@ -889,8 +949,21 @@ describe('App', () => {
         flavorText: null,
         evolution: {
           stage: 'Phase 1',
-          previous: [{ id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' }],
-          next: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+          sharedPath: [
+            { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+            {
+              id: 25,
+              displayName: 'Pikachu',
+              image: 'https://img/pikachu.png',
+              types: [{ name: 'Elektro' }],
+            },
+          ],
+          branchGroups: [
+            {
+              originId: 25,
+              items: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+            },
+          ],
         },
       })
       .mockResolvedValueOnce({
@@ -905,8 +978,13 @@ describe('App', () => {
         flavorText: null,
         evolution: {
           stage: 'Basis',
-          previous: [],
-          next: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
+          sharedPath: [{ id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' }],
+          branchGroups: [
+            {
+              originId: 172,
+              items: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
+            },
+          ],
         },
       });
 
@@ -940,10 +1018,20 @@ describe('App', () => {
       flavorText: null,
       evolution: {
         stage: 'Basis',
-        previous: [],
-        next: [
-          { id: 134, displayName: 'Aquana', image: null },
-          { id: 135, displayName: 'Blitza', image: 'https://img/blitza.png' },
+        sharedPath: [
+          {
+            id: 133,
+            displayName: 'Evoli',
+            image: 'https://img/evoli.png',
+            types: [{ name: 'Normal' }],
+          },
+        ],
+        branchGroups: [
+          { originId: 133, items: [{ id: 134, displayName: 'Aquana', image: null }] },
+          {
+            originId: 133,
+            items: [{ id: 135, displayName: 'Blitza', image: 'https://img/blitza.png' }],
+          },
         ],
       },
     });
@@ -953,7 +1041,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Evoli' })).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('Weitere Entwicklungszweige')).toBeInTheDocument();
+    expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zu Aquana wechseln' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zu Blitza wechseln' })).toBeInTheDocument();
     expect(screen.getAllByText('Kein Bild').length).toBeGreaterThan(0);
@@ -973,8 +1061,20 @@ describe('App', () => {
       flavorText: null,
       evolution: {
         stage: 'Basis',
-        previous: [],
-        next: [{ id: 8, displayName: 'Schillok', image: 'https://img/schillok.png' }],
+        sharedPath: [
+          {
+            id: 7,
+            displayName: 'Schiggy',
+            image: 'https://img/schiggy.png',
+            types: [{ name: 'Wasser' }],
+          },
+        ],
+        branchGroups: [
+          {
+            originId: 7,
+            items: [{ id: 8, displayName: 'Schillok', image: 'https://img/schillok.png' }],
+          },
+        ],
       },
     });
 
@@ -1005,8 +1105,20 @@ describe('App', () => {
       flavorText: null,
       evolution: {
         stage: 'Basis',
-        previous: [],
-        next: [{ id: 8, displayName: 'Schillok', image: 'https://img/schillok.png' }],
+        sharedPath: [
+          {
+            id: 7,
+            displayName: 'Schiggy',
+            image: 'https://img/schiggy.png',
+            types: [{ name: 'Wasser' }],
+          },
+        ],
+        branchGroups: [
+          {
+            originId: 7,
+            items: [{ id: 8, displayName: 'Schillok', image: 'https://img/schillok.png' }],
+          },
+        ],
       },
     });
 
@@ -1031,8 +1143,21 @@ describe('App', () => {
       flavorText: null,
       evolution: {
         stage: 'Phase 1',
-        previous: [{ id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' }],
-        next: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+        sharedPath: [
+          { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+          {
+            id: 25,
+            displayName: 'Pikachu',
+            image: 'https://img/pikachu.png',
+            types: [{ name: 'Elektro' }],
+          },
+        ],
+        branchGroups: [
+          {
+            originId: 25,
+            items: [{ id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' }],
+          },
+        ],
       },
     });
 
@@ -1102,8 +1227,16 @@ describe('App', () => {
       flavorText: null,
       evolution: {
         stage: 'Phase 1',
-        previous: [{ id: 1, displayName: 'Bisasam', image: null }],
-        next: [],
+        sharedPath: [
+          { id: 1, displayName: 'Bisasam', image: null },
+          {
+            id: 2,
+            displayName: 'Bisaknosp',
+            image: null,
+            types: [{ name: 'Pflanze' }, { name: 'Gift' }],
+          },
+        ],
+        branchGroups: [],
       },
     });
 
@@ -1307,7 +1440,7 @@ describe('App', () => {
     expect(screen.queryByText('Details konnten nicht geladen werden')).not.toBeInTheDocument();
   });
 
-  it('hides evolution section when no previous and no next evolution exist', async () => {
+  it('hides evolution section when no evolution relations exist', async () => {
     window.history.pushState({}, '', '/#/pokemon/132');
     fetchPokemonDetailMock.mockResolvedValueOnce(
       detailFixture({
@@ -1315,8 +1448,8 @@ describe('App', () => {
         displayName: 'Ditto',
         evolution: {
           stage: 'Basis',
-          previous: [],
-          next: [],
+          sharedPath: [{ id: 132, displayName: 'Ditto', image: 'https://img/pikachu.png' }],
+          branchGroups: [],
         },
       }),
     );
@@ -1370,7 +1503,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Evoli' })).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('Weitere Entwicklungszweige')).toBeInTheDocument();
+    expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
     expect(screen.getByText('Wasser')).toBeInTheDocument();
     expect(screen.getByText('Elektro')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Zu Evoli wechseln' })).not.toBeInTheDocument();
