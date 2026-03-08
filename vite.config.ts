@@ -4,6 +4,11 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 export default defineConfig(({ mode }) => ({
   base: mode === 'gh-pages' ? '/pokzi/' : '/',
   plugins: [svelte()],
+  server: {
+    watch: {
+      ignored: ['**/coverage/**', '**/playwright-report/**', '**/docs/**'],
+    },
+  },
   resolve: {
     conditions: ['browser'],
   },
