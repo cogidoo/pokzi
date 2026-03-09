@@ -130,6 +130,7 @@ interface EvolutionChainResponse {
 
 let speciesIndexPromise: Promise<BaseSpeciesIndexItem[]> | null = null;
 let speciesIndexCache: BaseSpeciesIndexItem[] | null = null;
+const searchResultCache = new Map<number, Omit<PokemonSearchResult, 'matchQuality'>>();
 const evolutionItemCache = new Map<number, PokemonEvolutionTile | null>();
 const detailCache = new Map<number, PokemonDetail>();
 const moveAttackCache = new Map<string, PokemonAttack | null>();
@@ -199,6 +200,46 @@ function emptyEvolutionSummary(): {
 export { SearchPokemonError, isSearchPokemonError };
 
 /**
+ * Reads a cached search-result view model and applies the query-specific
+ * match quality used by the search UI.
+ *
+ * @param id - Pokemon id used as cache key.
+ * @param matchQuality - Match quality for the current query.
+ * @returns Cached result with updated match quality or `null`.
+ */
+function getCachedSearchResult(
+  id: number,
+  matchQuality: SearchMatchQuality,
+): PokemonSearchResult | null {
+  const cached = searchResultCache.get(id);
+  if (!cached) {
+    return null;
+  }
+
+  return {
+    ...cached,
+    matchQuality,
+  };
+}
+
+/**
+ * Stores a normalized search-result view model without query-specific
+ * match quality so it can be reused across future queries.
+ *
+ * @param result - Search result generated from API payloads.
+ */
+function cacheSearchResult(result: PokemonSearchResult): void {
+  searchResultCache.set(result.id, {
+    id: result.id,
+    name: result.name,
+    displayName: result.displayName,
+    image: result.image,
+    types: result.types,
+    evolutionStage: result.evolutionStage,
+  });
+}
+
+/**
  * Loads a Pokemon by id or canonical name and applies German display metadata.
  *
  * @param idOrName - Pokemon id or API name.
@@ -213,11 +254,21 @@ async function fetchPokemonByIdOrName(
   germanName: string,
   matchQuality: SearchMatchQuality,
 ): Promise<PokemonSearchResult | null> {
+  const parsedId = Number(idOrName);
+  if (Number.isFinite(parsedId) && parsedId > 0) {
+    const cached = getCachedSearchResult(parsedId, matchQuality);
+    if (cached) {
+      return cached;
+    }
+  }
+
   try {
     const data = await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${idOrName}`, signal);
     const species = await fetchPokemonSpecies(data.id, signal);
     const evolutionStage = await resolveEvolutionStage(data.name, species, signal);
-    return mapPokemonResponse(data, germanName, evolutionStage, matchQuality);
+    const result = mapPokemonResponse(data, germanName, evolutionStage, matchQuality);
+    cacheSearchResult(result);
+    return result;
   } catch (error) {
     if (isHttpStatusError(error) && error.status === 404) {
       return null;
@@ -238,12 +289,22 @@ async function fetchPokemonById(
   id: string,
   signal?: AbortSignal,
 ): Promise<PokemonSearchResult | null> {
+  const parsedId = Number(id);
+  if (Number.isFinite(parsedId) && parsedId > 0) {
+    const cached = getCachedSearchResult(parsedId, 'exact');
+    if (cached) {
+      return cached;
+    }
+  }
+
   try {
     const data = await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${id}`, signal);
     const species = await fetchPokemonSpecies(data.id, signal);
     const germanName = getGermanNameFromSpecies(species);
     const evolutionStage = await resolveEvolutionStage(data.name, species, signal);
-    return mapPokemonResponse(data, germanName ?? data.name, evolutionStage, 'exact');
+    const result = mapPokemonResponse(data, germanName ?? data.name, evolutionStage, 'exact');
+    cacheSearchResult(result);
+    return result;
   } catch (error) {
     if (isHttpStatusError(error) && error.status === 404) {
       return null;

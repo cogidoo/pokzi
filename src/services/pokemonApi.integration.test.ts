@@ -1228,6 +1228,191 @@ describe('searchPokemon (German names)', () => {
     expect(indexCalls).toBe(1);
   });
 
+  it('reuses cached search result payloads across repeated german-name searches', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.includes('/pokemon-species?limit=1400')) {
+        return Promise.resolve(
+          asResponse({
+            results: [{ name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu', 10)));
+      }
+
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'pichu' },
+              evolves_to: [
+                {
+                  species: { name: 'pikachu' },
+                  evolves_to: [{ species: { name: 'raichu' }, evolves_to: [] }],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+
+    await searchPokemon('pik');
+    await searchPokemon('pik');
+
+    const pokemonCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon/25')).length;
+    const speciesCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon-species/25')).length;
+    const evolutionCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/evolution-chain/10')).length;
+
+    expect(pokemonCalls).toBe(1);
+    expect(speciesCalls).toBe(1);
+    expect(evolutionCalls).toBe(1);
+  });
+
+  it('reuses cached search result payloads for repeated numeric ID searches', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(asResponse(makePokemon(25, 'pikachu')));
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu', 10)));
+      }
+
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: { name: 'pichu' },
+              evolves_to: [
+                {
+                  species: { name: 'pikachu' },
+                  evolves_to: [{ species: { name: 'raichu' }, evolves_to: [] }],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { searchPokemon } = await import('./pokemonApi');
+
+    await searchPokemon('25');
+    await searchPokemon('25');
+
+    const pokemonCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon/25')).length;
+    const speciesCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon-species/25')).length;
+    const evolutionCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/evolution-chain/10')).length;
+
+    expect(pokemonCalls).toBe(1);
+    expect(speciesCalls).toBe(1);
+    expect(evolutionCalls).toBe(1);
+  });
+
+  it('sorts same-method move details by learned level for attack selection', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse({
+            id: 25,
+            name: 'pikachu',
+            height: 4,
+            weight: 60,
+            stats: [{ base_stat: 35, stat: { name: 'hp' } }],
+            sprites: {
+              other: {
+                'official-artwork': {
+                  front_default: 'https://img/pikachu.png',
+                },
+              },
+              front_default: 'https://img/front-pikachu.png',
+            },
+            moves: [
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 20,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                  {
+                    level_learned_at: 5,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'gold-silver' },
+                  },
+                ],
+              },
+            ],
+            types: [{ type: { name: 'electric' } }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunder-shock',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.attacks).toEqual([
+      {
+        name: 'Donnerschock',
+        damage: '40',
+        typeName: 'Elektro',
+      },
+    ]);
+  });
+
   it('fetches localized detail payload with evolution summary, facts and flavor text', async () => {
     vi.mocked(fetch).mockImplementation((input) => {
       const url = inputToUrl(input);
