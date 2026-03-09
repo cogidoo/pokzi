@@ -188,6 +188,7 @@ Implementation guidance:
 - Avoid long uninterrupted text
 - Keep important facts above the fold on iPad portrait
 - Keep the overall detail frame visually stable during in-detail navigation and loading refreshes
+- Allow one secondary interaction inside the hero artwork object only when it stays visually obvious and does not destabilize the hero layout
 
 ## Components
 
@@ -290,6 +291,7 @@ Layout rules:
 - Hero content should align from a stable top edge on tablet widths; avoid vertical re-centering that makes the identity block jump when description length changes.
 - Reserve the same vertical space for up to three lines of hero description on all breakpoints so a two-line excerpt does not shift the artwork or identity block lower than a three-line excerpt.
 - The hero should preserve a stable perceived structure when moving between related Pokemon in the detail flow.
+- If the artwork area reveals alternate content, keep it inside the same visual object and preserve the surrounding hero alignment.
 
 Implementation guidance:
 
@@ -299,6 +301,9 @@ Implementation guidance:
 - Use spacing and proportion to create emphasis before using stronger colors.
 - The optional description must read like a short supporting caption, not like the start of a long article.
 - When related Pokemon are opened from the evolution section, preserve the same hero frame, alignment, and approximate visual rhythm.
+- Secondary artwork interactions should use one clear affordance, not hidden gestures.
+- If the artwork flips, the whole artwork surface should remain the tap target and the affordance should stay anchored in a consistent corner on both sides.
+- Back-side content inside the artwork object must stay sparse enough to scan in one glance on iPad and mobile.
 
 ### State Surfaces
 
@@ -317,12 +322,14 @@ Global guidance for idle, loading, invalid, empty, not-found, and error states:
 - Sticky search transitions should feel calm and mechanically stable.
 - In-detail navigation should preserve the detail frame and avoid a full-layout reset sensation.
 - Respect `prefers-reduced-motion` with non-essential motion removed.
+- Card-flip motion inside the detail hero can be more noticeable than generic press feedback, but should still feel calm and controlled.
 
 Implementation guidance:
 
 - Prefer 120-180ms transitions for simple emphasis changes.
 - Prefer opacity/transform changes over layout-shifting animations.
 - Do not animate large blocks vertically in a way that changes reading position.
+- Reduced-motion users should get an almost direct state change instead of a full 3D-feeling rotation.
 
 ### Fact Card
 

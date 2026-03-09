@@ -25,6 +25,7 @@ The detail page turns a search result into a simple learning moment without forc
 
 - Dedicated detail page for one selected Pokemon
 - Prominent hero area with artwork, German name, ID, and German type chips
+- Flip-ready artwork card inside the hero for a compact attack back side
 - Curated key facts section
 - Evolution summary with stage-based visual navigation across the visible chain path
 - Back action to the preserved search/results context
@@ -65,6 +66,15 @@ Must show:
 - base HP (`KP`) close to the name when API stat data is available
 - Pokemon number (`#001`)
 - German type chips
+- one visible flip hint inside the artwork card corner
+
+When available, the artwork card may also reveal a back side with:
+
+- `1` to `2` official attacks selected from Pokemon move data
+- German attack names
+- official attack damage strings when available, including variable values such as `40+` or `30x`
+- German attack type labels
+- a short German fallback message when no suitable attacks are available
 
 May also show:
 
@@ -118,6 +128,22 @@ Presentation rules:
 - Hide unavailable optional sub-sections instead of showing raw placeholders.
 - Keep the screen stable when one optional field is unavailable.
 - Missing optional hero description must not cause the core hero identity block to noticeably jump between related Pokemon.
+- If no suitable official attacks remain after filtering, keep the artwork-card back side usable and show a short German fallback message instead of leaving the surface empty.
+- If only one suitable official attack remains after filtering, show exactly one attack item instead of filler content.
+
+### Attack Back Side
+
+- Only the artwork card flips; the rest of the hero stays visually stable.
+- The entire artwork card is the tap target, not only the corner hint.
+- The corner hint remains visible on both sides so the interaction stays discoverable.
+- Prefer `2` attacks when possible; otherwise show `1`.
+- Use only official attack data; do not invent attacks, effects, or damage values.
+- Exclude attacks that do not expose an official damage value at all.
+- Prefer earlier, simpler attacks over stronger later attacks when multiple suitable moves exist.
+- For evolved Pokemon, prefer attacks that are not already shown by earlier visible evolution stages when suitable alternatives exist.
+- Sort the visible attack rows by damage so the lighter shown attack appears first.
+- Keep the attack back side limited to attack name, damage, and attack type.
+- A faint Pokemon sprite may sit behind the attack list only when text contrast stays strong.
 
 ## UX/UI Handoff
 
@@ -142,6 +168,7 @@ Implementation notes:
 - `#ID` is clearly secondary to the name.
 - Type chips and stage badge sit close to the identity block and support, rather than compete with, the title.
 - The hero should feel like a mode switch away from result browsing toward one focused Pokemon.
+- The artwork card may add one compact, clearly functional flip affordance in the lower-right corner without making the hero feel busier.
 - On tablet widths, the identity block should align from a stable top edge rather than vertically re-center based on text amount.
 - A two-line hero description must keep the same reserved text area as a three-line hero description so the hero composition does not slide vertically between Pokemon.
 - A related-Pokemon switch inside the detail flow must preserve the perceived hero structure as much as possible.
@@ -149,10 +176,13 @@ Implementation notes:
 Implementation notes:
 
 - Keep the artwork block visually generous and distinct from plain metadata containers.
+- The artwork-card back side should feel like the same object, not a second nested card.
 - Group name, id, types, stage, and optional description tightly enough that they read as one identity cluster.
 - The optional description must remain visibly subordinate to the name and artwork.
 - Avoid adding extra labels, dividers, or badges that make the hero feel busier than the result cards.
 - On iPad widths, use proportion and alignment to make the hero feel premium rather than simply wider.
+- The corner affordance must look intentionally interactive and remain understandable without extra helper text on the front side.
+- On the back side, prioritize large readable attack rows over decorative card chrome.
 
 ### Key Facts Composition
 
@@ -184,6 +214,7 @@ Implementation notes:
 - Back action is visible first and remains stable across all main states.
 - Detail hero clearly reads as the page focus.
 - Artwork, German name, `#ID`, type chips, optional stage badge, and optional short description form one cohesive identity block.
+- The artwork card can flip between artwork and attack back side without moving the surrounding hero structure.
 - Key facts are rendered as cards and remain easy to scan.
 - Optional sections disappear cleanly when data is unavailable.
 - The detail page remains readable and touch-friendly on phone and iPad widths defined in `DESIGN_BRIEF.md`.
@@ -198,6 +229,15 @@ Implementation notes:
 - If the detail page was opened from search results, the back action returns the user to the preserved search query and results context.
 - If the detail page was opened directly via deep link, the back action returns the user to the neutral search start state.
 - The hero area shows artwork, German name, ID, and German type chips.
+- The artwork card is tappable across its full surface and exposes a visible flip hint in the lower-right corner.
+- The artwork card flips to a back side with `1` to `2` official attacks when the user taps it.
+- Attack rows show German attack name, official damage value, and German attack type.
+- Attack selection prefers earlier, simpler official attacks with a damage value; attacks without any official damage value are excluded.
+- For evolved Pokemon, attack selection prefers non-duplicate attacks compared with earlier visible stages when the official data allows it.
+- If an evolved Pokemon only has one non-duplicate suitable attack, show that one attack instead of filling the second slot with a duplicate from an earlier stage.
+- When two attacks are visible, the lower-damage attack is shown first.
+- If only one suitable official attack exists, the back side shows one attack.
+- If no suitable official attacks exist, the back side shows a short German fallback message.
 - When available, `KP` is visible directly near the hero identity name.
 - When available, the short German flavor text appears inside the hero instead of as a separate later section.
 - The evolution summary appears before the key facts section.

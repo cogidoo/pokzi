@@ -53,6 +53,15 @@ export interface PokemonEvolutionSummary {
 }
 
 /**
+ * Curated official attack shown on the detail hero back side.
+ */
+export interface PokemonAttack {
+  name: string;
+  damage: string;
+  typeName: string;
+}
+
+/**
  * Shape of a Pokemon detail payload rendered in the detail view.
  */
 export interface PokemonDetail {
@@ -60,6 +69,7 @@ export interface PokemonDetail {
   name: string;
   displayName: string;
   image: string | null;
+  sprite?: string | null;
   types: PokemonType[];
   /** Base HP from official API stats (`hp`), if available. */
   baseHp?: number | null;
@@ -67,5 +77,6 @@ export interface PokemonDetail {
   weightKilograms: number;
   category: string | null;
   flavorText: string | null;
+  attacks?: PokemonAttack[];
   evolution: PokemonEvolutionSummary;
 }

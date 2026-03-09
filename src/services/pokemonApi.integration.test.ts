@@ -21,7 +21,19 @@ vi.mock('../data/pokemonGermanSpeciesIndex', () => {
   };
 });
 
-function makePokemon(id: number, name: string, image = `https://img/${name}.png`) {
+function makePokemon(
+  id: number,
+  name: string,
+  image: string | null = `https://img/${name}.png`,
+  moves: {
+    move: { name: string; url?: string };
+    version_group_details?: {
+      level_learned_at: number;
+      move_learn_method: { name: string };
+      version_group: { name: string };
+    }[];
+  }[] = [],
+) {
   return {
     id,
     name,
@@ -34,6 +46,7 @@ function makePokemon(id: number, name: string, image = `https://img/${name}.png`
         },
       },
     },
+    moves,
     types: [{ type: { name: 'electric' } }],
   };
 }
@@ -1337,6 +1350,1655 @@ describe('searchPokemon (German names)', () => {
         originId: 25,
         items: [{ id: 26, displayName: 'Raichu', image: null, types: [] }],
       },
+    ]);
+  });
+
+  it('selects up to two early official attacks and orders the shown rows from low to high damage', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse({
+            ...makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'growl',
+                  url: 'https://pokeapi.co/api/v2/move/growl',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 11,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'thunderbolt',
+                  url: 'https://pokeapi.co/api/v2/move/thunderbolt',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 26,
+                    move_learn_method: { name: 'machine' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+            sprites: {
+              front_default: 'https://img/pikachu-sprite.png',
+              other: {
+                'official-artwork': {
+                  front_default: 'https://img/pikachu.png',
+                },
+              },
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu', 10)));
+      }
+
+      if (url.endsWith('/evolution-chain/10')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'pichu',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/172/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'pikachu',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/25/',
+                  },
+                  evolves_to: [],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/172')) {
+        return Promise.resolve(asResponse(speciesNames('Pichu')));
+      }
+
+      if (url.endsWith('/move/growl')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'growl',
+            power: null,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Heuler' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunder-shock',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 30,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/thunderbolt')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunderbolt',
+            power: 90,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerblitz' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.sprite).toBe('https://img/pikachu-sprite.png');
+    expect(detail?.attacks).toEqual([
+      { name: 'Ruckzuckhieb', damage: '30', typeName: 'Normal' },
+      { name: 'Donnerschock', damage: '40', typeName: 'Elektro' },
+    ]);
+  });
+
+  it('prefers attacks that do not duplicate earlier visible evolution stages when alternatives exist', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/3')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(3, 'finalmon', 'https://img/finalmon.png', [
+              {
+                move: {
+                  name: 'growl',
+                  url: 'https://pokeapi.co/api/v2/move/growl',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 4,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'arm-thrust',
+                  url: 'https://pokeapi.co/api/v2/move/arm-thrust',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 10,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'hammer-arm',
+                  url: 'https://pokeapi.co/api/v2/move/hammer-arm',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 25,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon/1')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(1, 'basismon', 'https://img/basismon.png', [
+              {
+                move: {
+                  name: 'growl',
+                  url: 'https://pokeapi.co/api/v2/move/growl',
+                },
+              },
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon/2')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(2, 'midmon', 'https://img/midmon.png', [
+              {
+                move: {
+                  name: 'growl',
+                  url: 'https://pokeapi.co/api/v2/move/growl',
+                },
+              },
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/3')) {
+        return Promise.resolve(asResponse(speciesNames('Finalmon', 77)));
+      }
+
+      if (url.endsWith('/evolution-chain/77')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'basismon',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/1/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'midmon',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/2/',
+                  },
+                  evolves_to: [
+                    {
+                      species: {
+                        name: 'finalmon',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/3/',
+                      },
+                      evolves_to: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/1')) {
+        return Promise.resolve(asResponse(speciesNames('Basismon')));
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Midmon')));
+      }
+
+      if (url.endsWith('/move/growl')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'growl',
+            power: null,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Heuler' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/shared-strike')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'shared-strike',
+            power: 20,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Gemeinschlag' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/arm-thrust')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'arm-thrust',
+            power: 15,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Armstoß' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/hammer-arm')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'hammer-arm',
+            power: 100,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Hammerarm' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(3);
+
+    expect(detail?.attacks).toEqual([
+      { name: 'Armstoß', damage: '15', typeName: 'Kampf' },
+      { name: 'Hammerarm', damage: '100', typeName: 'Kampf' },
+    ]);
+  });
+
+  it('shows only one attack for an evolved pokemon when the only second option would duplicate an earlier stage', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/2')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(2, 'midmon', 'https://img/midmon.png', [
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 4,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'arm-thrust',
+                  url: 'https://pokeapi.co/api/v2/move/arm-thrust',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 10,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon/1')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(1, 'basismon', 'https://img/basismon.png', [
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Midmon', 77)));
+      }
+
+      if (url.endsWith('/evolution-chain/77')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'basismon',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/1/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'midmon',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/2/',
+                  },
+                  evolves_to: [],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/1')) {
+        return Promise.resolve(asResponse(speciesNames('Basismon')));
+      }
+
+      if (url.endsWith('/move/shared-strike')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'shared-strike',
+            power: 20,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Gemeinschlag' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/arm-thrust')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'arm-thrust',
+            power: 15,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Armstoß' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(2);
+
+    expect(detail?.attacks).toEqual([{ name: 'Armstoß', damage: '15', typeName: 'Kampf' }]);
+  });
+
+  it('scans the full distinct-candidate list to avoid earlier-stage duplicates', async () => {
+    const repeatedMoves = Array.from({ length: 45 }, (_, index) => ({
+      move: {
+        name: `shared-move-${String(index + 1)}`,
+        url: `https://pokeapi.co/api/v2/move/shared-move-${String(index + 1)}`,
+      },
+      version_group_details: [
+        {
+          level_learned_at: index + 1,
+          move_learn_method: { name: 'level-up' },
+          version_group: { name: 'red-blue' },
+        },
+      ],
+    }));
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/3')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(3, 'finalmon', 'https://img/finalmon.png', [
+              ...repeatedMoves,
+              {
+                move: {
+                  name: 'late-unique-one',
+                  url: 'https://pokeapi.co/api/v2/move/late-unique-one',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 20,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'late-unique-two',
+                  url: 'https://pokeapi.co/api/v2/move/late-unique-two',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 24,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon/1') || url.endsWith('/pokemon/2')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(
+              url.endsWith('/pokemon/1') ? 1 : 2,
+              url.endsWith('/pokemon/1') ? 'basismon' : 'midmon',
+              null,
+              repeatedMoves,
+            ),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/3')) {
+        return Promise.resolve(asResponse(speciesNames('Finalmon', 77)));
+      }
+
+      if (url.endsWith('/evolution-chain/77')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'basismon',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/1/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'midmon',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/2/',
+                  },
+                  evolves_to: [
+                    {
+                      species: {
+                        name: 'finalmon',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/3/',
+                      },
+                      evolves_to: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/1')) {
+        return Promise.resolve(asResponse(speciesNames('Basismon')));
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Midmon')));
+      }
+
+      if (url.includes('/move/shared-move-')) {
+        const number = /shared-move-(\d+)$/.exec(url)?.[1] ?? '1';
+        return Promise.resolve(
+          asResponse({
+            name: `shared-move-${number}`,
+            power: 10 + Number(number),
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: `Geteilt ${number}` }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/late-unique-one')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'late-unique-one',
+            power: 70,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Spät Eins' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/late-unique-two')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'late-unique-two',
+            power: 80,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Spät Zwei' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(3);
+
+    expect(detail?.attacks).toEqual([
+      { name: 'Spät Eins', damage: '70', typeName: 'Kampf' },
+      { name: 'Spät Zwei', damage: '80', typeName: 'Kampf' },
+    ]);
+  });
+
+  it('returns an empty attack showcase when no move has an official damage value', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/151')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(151, 'mew', 'https://img/mew.png', [
+              {
+                move: {
+                  name: 'growl',
+                  url: 'https://pokeapi.co/api/v2/move/growl',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'splash',
+                  url: 'https://pokeapi.co/api/v2/move/splash',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/151')) {
+        return Promise.resolve(asResponse(speciesNames('Mew')));
+      }
+
+      if (url.endsWith('/move/growl')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'growl',
+            power: null,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Heuler' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/splash')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'splash',
+            power: null,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Platscher' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(151);
+
+    expect(detail?.attacks).toEqual([]);
+  });
+
+  it('falls back to move endpoint url and formatted names when localized move metadata is missing', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/7')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(7, 'squirtle', 'https://img/squirtle.png', [
+              {
+                move: { name: 'mystic-pulse' },
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/7')) {
+        return Promise.resolve(asResponse(speciesNames('Schiggy')));
+      }
+
+      if (url.endsWith('/move/mystic-pulse')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'mystic-pulse',
+            power: 55,
+            type: { name: 'shadow' },
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(7);
+
+    expect(detail?.attacks).toEqual([{ name: 'Mystic Pulse', damage: '55', typeName: 'Shadow' }]);
+  });
+
+  it('keeps later attack candidates when an earlier move lookup fails transiently', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'broken-move',
+                  url: 'https://pokeapi.co/api/v2/move/broken-move',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 5,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/broken-move')) {
+        return Promise.resolve(asResponse({}, false, 500));
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 40,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.attacks).toEqual([{ name: 'Ruckzuckhieb', damage: '40', typeName: 'Normal' }]);
+  });
+
+  it('skips a missing move endpoint and still keeps later official attacks', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'missing-move',
+                  url: 'https://pokeapi.co/api/v2/move/missing-move',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 3,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/missing-move')) {
+        return Promise.resolve(asResponse({}, false, 404));
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunder-shock',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.attacks).toEqual([{ name: 'Donnerschock', damage: '40', typeName: 'Elektro' }]);
+  });
+
+  it('orders non-level-up moves by machine, tutor, egg, then unknown methods', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/133')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(133, 'eevee', 'https://img/eevee.png', [
+              {
+                move: {
+                  name: 'wild-charge',
+                  url: 'https://pokeapi.co/api/v2/move/wild-charge',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 0,
+                    move_learn_method: { name: 'machine' },
+                    version_group: { name: 'x-y' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'covet',
+                  url: 'https://pokeapi.co/api/v2/move/covet',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 0,
+                    move_learn_method: { name: 'tutor' },
+                    version_group: { name: 'x-y' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'wish',
+                  url: 'https://pokeapi.co/api/v2/move/wish',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 0,
+                    move_learn_method: { name: 'egg' },
+                    version_group: { name: 'x-y' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'celebrate',
+                  url: 'https://pokeapi.co/api/v2/move/celebrate',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 0,
+                    move_learn_method: { name: 'special-event' },
+                    version_group: { name: 'x-y' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/133')) {
+        return Promise.resolve(asResponse(speciesNames('Evoli')));
+      }
+
+      if (url.endsWith('/move/wild-charge')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'wild-charge',
+            power: 90,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Stromstoß' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/covet')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'covet',
+            power: 60,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Bezirzer' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/wish')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'wish',
+            power: 10,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Wunschtraum' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/celebrate')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'celebrate',
+            power: 5,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Feier' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(133);
+
+    expect(detail?.attacks).toEqual([
+      { name: 'Bezirzer', damage: '60', typeName: 'Normal' },
+      { name: 'Stromstoß', damage: '90', typeName: 'Elektro' },
+    ]);
+  });
+
+  it('rethrows move aborts when the detail request signal was aborted', async () => {
+    const controller = new AbortController();
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        controller.abort();
+        return Promise.reject(new DOMException('Aborted', 'AbortError'));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+
+    await expect(fetchPokemonDetail(25, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
+
+  it('reuses cached move attack metadata across different detail ids', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon/26')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(26, 'raichu', 'https://img/raichu.png', [
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/pokemon-species/26')) {
+        return Promise.resolve(asResponse(speciesNames('Raichu')));
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunder-shock',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const first = await fetchPokemonDetail(25);
+    const second = await fetchPokemonDetail(26);
+
+    expect(first?.attacks).toEqual([{ name: 'Donnerschock', damage: '40', typeName: 'Elektro' }]);
+    expect(second?.attacks).toEqual([{ name: 'Donnerschock', damage: '40', typeName: 'Elektro' }]);
+    expect(
+      vi.mocked(fetch).mock.calls.filter(([url]) => inputToUrl(url).endsWith('/move/thunder-shock'))
+        .length,
+    ).toBe(1);
+  });
+
+  it('reuses cached earlier-stage move-name lookups across related detail requests', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/2')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(2, 'midmon', 'https://img/midmon.png', [
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 4,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'mid-only',
+                  url: 'https://pokeapi.co/api/v2/move/mid-only',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 10,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon/3')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(3, 'finalmon', 'https://img/finalmon.png', [
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 4,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'final-only',
+                  url: 'https://pokeapi.co/api/v2/move/final-only',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 15,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon/1')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(1, 'basismon', 'https://img/basismon.png', [
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Midmon', 77)));
+      }
+
+      if (url.endsWith('/pokemon-species/3')) {
+        return Promise.resolve(asResponse(speciesNames('Finalmon', 77)));
+      }
+
+      if (url.endsWith('/evolution-chain/77')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'basismon',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/1/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'midmon',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/2/',
+                  },
+                  evolves_to: [
+                    {
+                      species: {
+                        name: 'finalmon',
+                        url: 'https://pokeapi.co/api/v2/pokemon-species/3/',
+                      },
+                      evolves_to: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/1')) {
+        return Promise.resolve(asResponse(speciesNames('Basismon')));
+      }
+
+      if (url.endsWith('/move/shared-strike')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'shared-strike',
+            power: 20,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Gemeinschlag' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/mid-only')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'mid-only',
+            power: 30,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Mitte' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/final-only')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'final-only',
+            power: 40,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Finale' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    await fetchPokemonDetail(2);
+    await fetchPokemonDetail(3);
+
+    expect(
+      vi.mocked(fetch).mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon/1')).length,
+    ).toBe(1);
+  });
+
+  it('rethrows aborts from earlier-stage move-name lookups', async () => {
+    const controller = new AbortController();
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/2')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(2, 'midmon', 'https://img/midmon.png', [
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 4,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Midmon', 77)));
+      }
+
+      if (url.endsWith('/evolution-chain/77')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'basismon',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/1/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'midmon',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/2/',
+                  },
+                  evolves_to: [],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon/1')) {
+        controller.abort();
+        return Promise.reject(new DOMException('Aborted', 'AbortError'));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+
+    await expect(fetchPokemonDetail(2, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
+
+  it('ignores repeated canonical move candidates after the first selected attack', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 2,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 3,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 30,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunder-shock',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.attacks).toEqual([
+      { name: 'Ruckzuckhieb', damage: '30', typeName: 'Normal' },
+      { name: 'Donnerschock', damage: '40', typeName: 'Elektro' },
+    ]);
+  });
+
+  it('ignores later attacks that collapse to an already selected german attack name', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'first-hit',
+                  url: 'https://pokeapi.co/api/v2/move/first-hit',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'second-hit',
+                  url: 'https://pokeapi.co/api/v2/move/second-hit',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 2,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 3,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/first-hit')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'first-hit',
+            power: 20,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Doppelt' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/second-hit')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'second-hit',
+            power: 25,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Doppelt' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunder-shock',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.attacks).toEqual([
+      { name: 'Doppelt', damage: '20', typeName: 'Normal' },
+      { name: 'Donnerschock', damage: '40', typeName: 'Elektro' },
+    ]);
+  });
+
+  it('keeps level-up moves ordered by earlier learned level when method priority is the same', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'later-level',
+                  url: 'https://pokeapi.co/api/v2/move/later-level',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 12,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'earlier-level',
+                  url: 'https://pokeapi.co/api/v2/move/earlier-level',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 4,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/later-level')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'later-level',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Später' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/earlier-level')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'earlier-level',
+            power: 20,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Früher' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.attacks).toEqual([
+      { name: 'Früher', damage: '20', typeName: 'Normal' },
+      { name: 'Später', damage: '40', typeName: 'Elektro' },
     ]);
   });
 

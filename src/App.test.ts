@@ -87,12 +87,17 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
     name: 'pikachu',
     displayName: 'Pikachu',
     image: 'https://img/pikachu.png',
+    sprite: 'https://img/pikachu-sprite.png',
     types: [{ name: 'Elektro' }],
     baseHp: 35,
     heightMeters: 0.4,
     weightKilograms: 6,
     category: 'Maus-Pokemon',
     flavorText: 'Ein kurzer deutscher Flavor-Text.',
+    attacks: [
+      { name: 'Donnerschock', damage: '40', typeName: 'Elektro' },
+      { name: 'Ruckzuckhieb', damage: '30', typeName: 'Normal' },
+    ],
     evolution: {
       stage: 'Phase 1',
       sharedPath: [
@@ -897,12 +902,14 @@ describe('App', () => {
       name: 'pikachu',
       displayName: 'Pikachu',
       image: 'https://img/pikachu.png',
+      sprite: 'https://img/pikachu-sprite.png',
       types: [{ name: 'Elektro' }],
       baseHp: null,
       heightMeters: 0.4,
       weightKilograms: 6,
       category: null,
       flavorText: null,
+      attacks: [{ name: 'Donnerschock', damage: '40', typeName: 'Elektro' }],
       evolution: {
         stage: 'Phase 1',
         sharedPath: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
@@ -917,6 +924,23 @@ describe('App', () => {
     });
 
     expect(screen.queryByLabelText(/KP /)).not.toBeInTheDocument();
+  });
+
+  it('shows the hero attack back side when the artwork card is tapped', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Angriffe von Pikachu zeigen' }));
+
+    expect(screen.getByRole('button', { name: 'Pikachu-Bild zeigen' })).toBeInTheDocument();
+    expect(screen.getByText('Donnerschock')).toBeInTheDocument();
+    expect(screen.getByText('40 Schaden')).toBeInTheDocument();
   });
 
   it('keeps detail frame stable while loading next evolution detail', async () => {

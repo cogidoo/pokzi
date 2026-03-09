@@ -1,6 +1,7 @@
 <script lang="ts">
   import SearchBar from './components/SearchBar.svelte';
   import EvolutionSummary from './components/EvolutionSummary.svelte';
+  import PokemonArtworkCard from './components/PokemonArtworkCard.svelte';
   import ResultCard from './components/ResultCard.svelte';
   import StatusState from './components/StatusState.svelte';
   import {
@@ -610,16 +611,13 @@
         <article class="detail__content">
           <section class="detail__hero">
             <div class="detail__image-wrap">
-              {#if detail.image}
-                <img
-                  class="detail__image"
-                  src={detail.image}
-                  alt={detail.displayName}
-                  loading="eager"
+              {#key detail.id}
+                <PokemonArtworkCard
+                  displayName={detail.displayName}
+                  image={detail.image}
+                  attacks={detail.attacks ?? []}
                 />
-              {:else}
-                <div class="detail__image-fallback">Kein Bild</div>
-              {/if}
+              {/key}
             </div>
 
             <div class="detail__hero-meta">
