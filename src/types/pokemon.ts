@@ -62,6 +62,24 @@ export interface PokemonAttack {
 }
 
 /**
+ * One official move shown in the complete attack list on the detail page.
+ */
+export interface PokemonDetailedAttack {
+  name: string;
+  description: string;
+  damage: string | null;
+  typeName: string;
+}
+
+/**
+ * Result contract for the lazily loaded full attack section.
+ */
+export interface PokemonAllAttacksResult {
+  attacks: PokemonDetailedAttack[];
+  isPartial: boolean;
+}
+
+/**
  * Shape of a Pokemon detail payload rendered in the detail view.
  */
 export interface PokemonDetail {

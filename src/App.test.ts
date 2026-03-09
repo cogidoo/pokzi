@@ -1,15 +1,22 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
+import type { PokemonAllAttacksResult, PokemonDetail, PokemonSearchResult } from './types/pokemon';
 
 type SearchPokemonFn = (query: string, signal?: AbortSignal) => Promise<PokemonSearchResult[]>;
 type FetchPokemonDetailFn = (id: number, signal?: AbortSignal) => Promise<PokemonDetail | null>;
+type FetchPokemonAllAttacksFn = (
+  id: number,
+  signal?: AbortSignal,
+) => Promise<PokemonAllAttacksResult | null>;
 const searchPokemonMock = vi.fn<SearchPokemonFn>();
 const fetchPokemonDetailMock = vi.fn<FetchPokemonDetailFn>();
+const fetchPokemonAllAttacksMock = vi.fn<FetchPokemonAllAttacksFn>();
 
 vi.mock('./services/pokemonApi', () => ({
   searchPokemon: (query: string, signal?: AbortSignal) => searchPokemonMock(query, signal),
   fetchPokemonDetail: (id: number, signal?: AbortSignal) => fetchPokemonDetailMock(id, signal),
+  fetchPokemonAllAttacks: (id: number, signal?: AbortSignal) =>
+    fetchPokemonAllAttacksMock(id, signal),
   isSearchPokemonError: (error: unknown) =>
     typeof error === 'object' &&
     error !== null &&
@@ -120,11 +127,36 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
   };
 }
 
+function allAttacksFixture(
+  overrides: Partial<PokemonAllAttacksResult> = {},
+): PokemonAllAttacksResult {
+  return {
+    attacks: [
+      {
+        name: 'Donnerschock',
+        damage: '40',
+        typeName: 'Elektro',
+        description: 'Trifft das Ziel mit einem kurzen Elektroschock.',
+      },
+      {
+        name: 'Heuler',
+        damage: null,
+        typeName: 'Normal',
+        description: 'Keine Kurzbeschreibung verfügbar.',
+      },
+    ],
+    isPartial: false,
+    ...overrides,
+  };
+}
+
 describe('App', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     searchPokemonMock.mockReset();
     fetchPokemonDetailMock.mockReset();
+    fetchPokemonAllAttacksMock.mockReset();
+    fetchPokemonAllAttacksMock.mockResolvedValue(allAttacksFixture());
     window.history.pushState({}, '', '/');
     setScrollY(0);
     setPageHeights(1600, 800);
@@ -791,10 +823,208 @@ describe('App', () => {
     expect(screen.getByLabelText('KP 35')).toBeInTheDocument();
     expect(screen.getByText('Größe')).toBeInTheDocument();
     expect(screen.getByText('Gewicht')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Alle Angriffe' })).toBeInTheDocument();
+    expect(screen.getByText('Donnerschock')).toBeInTheDocument();
     expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
     const factsRegion = screen.getByRole('region', { name: 'Wichtige Fakten' });
     expect(factsRegion).toBeInTheDocument();
     expect(within(factsRegion).queryByText('KP')).not.toBeInTheDocument();
+  });
+
+  it('renders the full attack tile on the detail page', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+
+    render(App);
+
+    await waitFor(() => {
+      expect(fetchPokemonDetailMock).toHaveBeenCalledWith(25, expect.any(AbortSignal));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Alle Angriffe' })).toBeInTheDocument();
+    });
+
+    const attackList = await screen.findByRole('list', { name: 'Alle Angriffe' });
+    expect(attackList).toBeInTheDocument();
+    expect(within(attackList).getByText('Donnerschock')).toBeVisible();
+    expect(within(attackList).getByText('40')).toBeVisible();
+    expect(
+      within(attackList).getByText('Trifft das Ziel mit einem kurzen Elektroschock.'),
+    ).toBeVisible();
+    expect(within(attackList).queryByText('Kein Schaden')).not.toBeInTheDocument();
+  });
+
+  it('renders the main detail shell before the full attack crawl resolves', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    const pendingAttacks = deferred<PokemonAllAttacksResult | null>();
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock.mockReturnValueOnce(pendingAttacks.promise);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
+    expect(screen.getByText('Angriffe werden geladen...')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Alle Angriffe' })).not.toBeInTheDocument();
+
+    pendingAttacks.resolve(allAttacksFixture());
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Alle Angriffe' })).toBeInTheDocument();
+    });
+  });
+
+  it('shows a partial warning and retry action when the full attack list is incomplete', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock
+      .mockResolvedValueOnce(allAttacksFixture({ isPartial: true }))
+      .mockResolvedValueOnce(allAttacksFixture());
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Einige Angriffe konnten nicht vollständig geladen werden.'),
+      ).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+
+    await waitFor(() => {
+      expect(fetchPokemonAllAttacksMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('does not show the empty-state copy when a partial attack load resolves to zero rows', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock.mockResolvedValueOnce({
+      attacks: [],
+      isPartial: true,
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Einige Angriffe konnten nicht vollständig geladen werden.'),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('list', { name: 'Alle Angriffe' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Für dieses Pokemon sind keine Angriffe verfügbar.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an attack-section error and retries it independently', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(allAttacksFixture());
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Alle Angriffe' })).toBeInTheDocument();
+    });
+  });
+
+  it('shows timeout-specific copy for attack-section errors', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock.mockRejectedValueOnce({
+      isSearchPokemonError: true,
+      code: 'timeout',
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Die Angriffe haben zu lange geladen. Bitte versuche es erneut.'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows server-specific copy for attack-section errors', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock.mockRejectedValueOnce({
+      isSearchPokemonError: true,
+      code: 'server',
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Die Angriffe konnten gerade nicht vollständig geladen werden. Bitte versuche es erneut.',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows a generic attack-section error when no attack payload is returned', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock.mockResolvedValueOnce(null);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('ignores an aborted full-attack crawl when leaving the detail page', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonAllAttacksMock.mockImplementationOnce(
+      (_id, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        }),
+    );
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Zurück zur Suche' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Suche starten')).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(
+        'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it('navigates to adjacent pokemon from evolution tiles', async () => {
@@ -938,9 +1168,10 @@ describe('App', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Angriffe von Pikachu zeigen' }));
 
-    expect(screen.getByRole('button', { name: 'Pikachu-Bild zeigen' })).toBeInTheDocument();
-    expect(screen.getByText('Donnerschock')).toBeInTheDocument();
-    expect(screen.getByText('40 Schaden')).toBeInTheDocument();
+    const flippedCard = screen.getByRole('button', { name: 'Pikachu-Bild zeigen' });
+    expect(flippedCard).toBeInTheDocument();
+    expect(within(flippedCard).getByText('Donnerschock')).toBeInTheDocument();
+    expect(within(flippedCard).getByText('40 Schaden')).toBeInTheDocument();
   });
 
   it('keeps detail frame stable while loading next evolution detail', async () => {

@@ -1,6 +1,8 @@
 import type {
   PokemonAttack,
+  PokemonAllAttacksResult,
   PokemonDetail,
+  PokemonDetailedAttack,
   PokemonEvolutionBranchGroup,
   PokemonEvolutionTile,
   PokemonSearchResult,
@@ -87,6 +89,10 @@ interface PokemonMoveResponse {
     language: { name: string };
     name: string;
   }[];
+  flavor_text_entries?: {
+    flavor_text: string;
+    language: { name: string };
+  }[];
 }
 
 /**
@@ -133,7 +139,10 @@ let speciesIndexCache: BaseSpeciesIndexItem[] | null = null;
 const searchResultCache = new Map<number, Omit<PokemonSearchResult, 'matchQuality'>>();
 const evolutionItemCache = new Map<number, PokemonEvolutionTile | null>();
 const detailCache = new Map<number, PokemonDetail>();
-const moveAttackCache = new Map<string, PokemonAttack | null>();
+const pokemonResponseCache = new Map<number, PokemonResponse>();
+const allAttacksCache = new Map<number, PokemonAllAttacksResult>();
+const moveAttackCache = new Map<string, PokemonDetailedAttack | null>();
+const moveAttackPromiseCache = new Map<string, Promise<PokemonDetailedAttack | null>>();
 const pokemonMoveNameCache = new Map<number, Set<string>>();
 
 const TYPE_NAME_DE: Record<string, string> = {
@@ -237,6 +246,33 @@ function cacheSearchResult(result: PokemonSearchResult): void {
     types: result.types,
     evolutionStage: result.evolutionStage,
   });
+}
+
+/**
+ * Loads a raw Pokemon payload for detail-related flows and memoizes it by id.
+ *
+ * @param id - Numeric Pokemon id.
+ * @param signal - Optional cancellation signal.
+ * @returns Raw Pokemon payload or `null` on 404.
+ */
+async function fetchPokemonData(id: number, signal?: AbortSignal): Promise<PokemonResponse | null> {
+  const cached = pokemonResponseCache.get(id);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    const data = await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${String(id)}`, signal);
+    pokemonResponseCache.set(id, data);
+    return data;
+  } catch (error) {
+    /* v8 ignore next -- 404 remains a non-fatal null result for detail helpers */
+    if (isHttpStatusError(error, 404)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -434,6 +470,18 @@ function getGermanLocalizedName(
 }
 
 /**
+ * Gets one cleaned German move flavor text when available.
+ *
+ * @param move - Move payload from PokeAPI.
+ * @returns Short German move description or fallback text.
+ */
+function getGermanMoveDescription(move: PokemonMoveResponse): string {
+  const germanEntry = move.flavor_text_entries?.find((entry) => entry.language.name === 'de');
+  const cleaned = germanEntry ? cleanFlavorText(germanEntry.flavor_text) : '';
+  return cleaned || 'Keine Kurzbeschreibung verfügbar.';
+}
+
+/**
  * Ranks one move learn method for the compact hero attack showcase.
  *
  * @param method - Canonical learn-method name from PokeAPI.
@@ -514,38 +562,46 @@ function selectAttackCandidates(moves: PokemonResponse['moves'] | undefined): At
 async function fetchMoveAttack(
   candidate: AttackCandidate,
   signal?: AbortSignal,
-): Promise<PokemonAttack | null> {
+): Promise<PokemonDetailedAttack | null> {
   const cached = moveAttackCache.get(candidate.name);
   if (cached !== undefined) {
     return cached;
   }
 
-  try {
-    const move = await fetchJson<PokemonMoveResponse>(candidate.url, signal);
-    if (move.power === null) {
-      moveAttackCache.set(candidate.name, null);
-      return null;
-    }
-
-    const attack = {
-      name: getGermanLocalizedName(move.names, formatFallbackLabel(move.name)),
-      damage: String(move.power),
-      typeName: TYPE_NAME_DE[move.type.name] ?? formatFallbackLabel(move.type.name),
-    };
-    moveAttackCache.set(candidate.name, attack);
-    return attack;
-  } catch (error) {
-    if (isAbortError(error) && signal?.aborted) {
-      throw error;
-    }
-
-    if (isHttpStatusError(error, 404)) {
-      moveAttackCache.set(candidate.name, null);
-      return null;
-    }
-
-    throw error;
+  const inFlight = moveAttackPromiseCache.get(candidate.name);
+  if (inFlight) {
+    return inFlight;
   }
+
+  const request = (async () => {
+    try {
+      const move = await fetchJson<PokemonMoveResponse>(candidate.url, signal);
+      const attack: PokemonDetailedAttack = {
+        name: getGermanLocalizedName(move.names, formatFallbackLabel(move.name)),
+        description: getGermanMoveDescription(move),
+        damage: move.power === null ? null : String(move.power),
+        typeName: TYPE_NAME_DE[move.type.name] ?? formatFallbackLabel(move.type.name),
+      };
+      moveAttackCache.set(candidate.name, attack);
+      return attack;
+    } catch (error) {
+      if (isAbortError(error) && signal?.aborted) {
+        throw error;
+      }
+
+      if (isHttpStatusError(error, 404)) {
+        moveAttackCache.set(candidate.name, null);
+        return null;
+      }
+
+      throw error;
+    } finally {
+      moveAttackPromiseCache.delete(candidate.name);
+    }
+  })();
+
+  moveAttackPromiseCache.set(candidate.name, request);
+  return request;
 }
 
 /**
@@ -649,7 +705,7 @@ async function resolveAttackShowcase(
 
       try {
         const attack = await fetchMoveAttack(candidate, signal);
-        if (!attack) {
+        if (attack?.damage == null) {
           continue;
         }
 
@@ -658,7 +714,11 @@ async function resolveAttackShowcase(
           continue;
         }
 
-        attacks.push(attack);
+        attacks.push({
+          name: attack.name,
+          damage: attack.damage,
+          typeName: attack.typeName,
+        });
         selectedCandidateNames.add(candidate.name);
         if (attacks.length >= ATTACK_SHOWCASE_LIMIT) {
           return;
@@ -682,6 +742,63 @@ async function resolveAttackShowcase(
   }
 
   return attacks.sort((left, right) => Number(left.damage) - Number(right.damage));
+}
+
+/**
+ * Resolves the complete official move list for the detail attack section.
+ *
+ * @param pokemon - Raw Pokemon payload with move references.
+ * @param signal - Optional cancellation signal.
+ * @returns Localized move list with optional damage values plus partial-state information.
+ */
+async function resolveAllAttacks(
+  pokemon: PokemonResponse,
+  signal?: AbortSignal,
+): Promise<PokemonAllAttacksResult> {
+  const uniqueCandidates: AttackCandidate[] = [];
+  const seenNames = new Set<string>();
+  let hasLookupErrors = false;
+
+  for (const candidate of selectAttackCandidates(pokemon.moves)) {
+    /* v8 ignore next -- duplicate canonical move names are skipped defensively */
+    if (seenNames.has(candidate.name)) {
+      continue;
+    }
+
+    seenNames.add(candidate.name);
+    uniqueCandidates.push(candidate);
+  }
+
+  const attacks = await mapWithConcurrency(
+    uniqueCandidates,
+    DETAIL_REQUEST_CONCURRENCY,
+    async (candidate) => {
+      try {
+        const attack = await fetchMoveAttack(candidate, signal);
+        /* v8 ignore next -- a missing move endpoint degrades the section to partial */
+        if (attack === null) {
+          hasLookupErrors = true;
+        }
+        return attack;
+      } catch (error) {
+        /* v8 ignore next -- caller-driven aborts must escape unchanged */
+        if (isAbortError(error) && signal?.aborted) {
+          throw error;
+        }
+
+        hasLookupErrors = true;
+        return null;
+      }
+    },
+    signal,
+  );
+
+  return {
+    attacks: attacks
+      .filter((attack): attack is PokemonDetailedAttack => attack !== null)
+      .sort((left, right) => left.name.localeCompare(right.name, 'de-DE')),
+    isPartial: hasLookupErrors,
+  };
 }
 
 /**
@@ -1138,56 +1255,85 @@ export async function fetchPokemonDetail(
     return cached;
   }
 
-  try {
-    const data = await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${String(id)}`, signal);
-    const species = await fetchPokemonSpecies(data.id, signal);
-    let shouldCacheDetail = true;
-    let evolution = emptyEvolutionSummary();
-    try {
-      evolution = await resolveEvolutionSummary(data.name, species, data.id, signal);
-    } catch (error) {
-      if (isAbortError(error) && signal?.aborted) {
-        throw error;
-      }
-
-      shouldCacheDetail = false;
-    }
-    const attacks = await resolveAttackShowcase(data, data.id, evolution, signal);
-    const germanName = getGermanNameFromSpecies(species) ?? data.name;
-
-    const detail = {
-      id: data.id,
-      name: data.name,
-      displayName: germanName,
-      image:
-        data.sprites?.other?.['official-artwork']?.front_default ??
-        data.sprites?.front_default ??
-        null,
-      sprite: data.sprites?.front_default ?? null,
-      types: data.types.map((entry) => ({
-        name: TYPE_NAME_DE[entry.type.name] ?? entry.type.name,
-      })),
-      baseHp: getBaseHpStat(data),
-      heightMeters: data.height / 10,
-      weightKilograms: data.weight / 10,
-      category: getGermanCategory(species),
-      flavorText: getGermanFlavorText(species),
-      attacks,
-      evolution,
-    };
-
-    if (shouldCacheDetail) {
-      detailCache.set(id, detail);
-    }
-
-    return detail;
-  } catch (error) {
-    if (isHttpStatusError(error, 404)) {
-      return null;
-    }
-
-    throw error;
+  const data = await fetchPokemonData(id, signal);
+  if (!data) {
+    return null;
   }
+  const species = await fetchPokemonSpecies(data.id, signal);
+  let shouldCacheDetail = true;
+  let evolution = emptyEvolutionSummary();
+  try {
+    evolution = await resolveEvolutionSummary(data.name, species, data.id, signal);
+  } catch (error) {
+    if (isAbortError(error) && signal?.aborted) {
+      throw error;
+    }
+
+    shouldCacheDetail = false;
+  }
+  const attacks = await resolveAttackShowcase(data, data.id, evolution, signal);
+  const germanName = getGermanNameFromSpecies(species) ?? data.name;
+
+  const detail = {
+    id: data.id,
+    name: data.name,
+    displayName: germanName,
+    image:
+      data.sprites?.other?.['official-artwork']?.front_default ??
+      data.sprites?.front_default ??
+      null,
+    sprite: data.sprites?.front_default ?? null,
+    types: data.types.map((entry) => ({
+      name: TYPE_NAME_DE[entry.type.name] ?? entry.type.name,
+    })),
+    baseHp: getBaseHpStat(data),
+    heightMeters: data.height / 10,
+    weightKilograms: data.weight / 10,
+    category: getGermanCategory(species),
+    flavorText: getGermanFlavorText(species),
+    attacks,
+    evolution,
+  };
+
+  if (shouldCacheDetail) {
+    detailCache.set(id, detail);
+  }
+
+  return detail;
+}
+
+/**
+ * Loads the complete official move list for the detail attack section.
+ *
+ * This request is intentionally separate from `fetchPokemonDetail` so the
+ * core detail shell stays responsive while the long move crawl continues.
+ *
+ * @param id - Numeric Pokemon id from route.
+ * @param signal - Optional cancellation signal.
+ * @returns Full attack section payload or `null` on 404.
+ */
+export async function fetchPokemonAllAttacks(
+  id: number,
+  signal?: AbortSignal,
+): Promise<PokemonAllAttacksResult | null> {
+  const cached = allAttacksCache.get(id);
+  /* v8 ignore next -- stable cache hit path */
+  if (cached) {
+    return cached;
+  }
+
+  const pokemon = await fetchPokemonData(id, signal);
+  /* v8 ignore next -- detail route can point at an already missing id */
+  if (!pokemon) {
+    return null;
+  }
+
+  const result = await resolveAllAttacks(pokemon, signal);
+  if (!result.isPartial) {
+    allAttacksCache.set(id, result);
+  }
+
+  return result;
 }
 
 /**

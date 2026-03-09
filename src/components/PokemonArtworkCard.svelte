@@ -53,8 +53,8 @@
               <span class="detail-artwork-card__attack">
                 <span class="detail-artwork-card__attack-name">{attack.name}</span>
                 <span class="detail-artwork-card__attack-meta">
-                  <span class="detail-artwork-card__attack-damage">{attack.damage} Schaden</span>
                   <span class="detail-artwork-card__attack-type">{attack.typeName}</span>
+                  <span class="detail-artwork-card__attack-damage">{attack.damage} Schaden</span>
                 </span>
               </span>
             {/each}

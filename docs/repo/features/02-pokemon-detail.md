@@ -27,6 +27,7 @@ The detail page turns a search result into a simple learning moment without forc
 - Prominent hero area with artwork, German name, ID, and German type chips
 - Flip-ready artwork card inside the hero for a compact attack back side
 - Curated key facts section
+- Full attack list section at the bottom of the detail page
 - Evolution summary with stage-based visual navigation across the visible chain path
 - Back action to the preserved search/results context
 - Loading, error, and retry states for detail fetch
@@ -39,7 +40,7 @@ The detail page turns a search result into a simple learning moment without forc
 3. The app navigates to the Pokemon detail view.
 4. The app shows a loading shell or skeleton immediately.
 5. Detail data resolves and the page renders the content.
-6. The user first sees the hero with the short description, then the evolution summary, then the key facts.
+6. The user first sees the hero with the short description, then the evolution summary, then the key facts, and finally the full attack list.
 7. The user uses the back action and returns to the preserved search/results state.
 
 ## Navigation Rules
@@ -56,6 +57,7 @@ The detail page turns a search result into a simple learning moment without forc
 1. Hero summary
 2. Evolution summary
 3. Key facts
+4. Full attack list
 
 ## Hero Summary
 
@@ -95,6 +97,21 @@ Presentation rules:
 - Avoid competitive or technical terminology when not necessary.
 - Show facts as large cards or tiles, not as a dense table.
 
+## Full Attack List
+
+- Show this section as the lowest tile in the detail flow.
+- List all official attacks from Pokemon move data.
+- Every attack row must show:
+  - German attack name
+  - short German attack description
+  - German attack type
+  - compact damage value (`{value}`) when a value exists
+- If a move has no official damage value, hide the damage chip and keep the type chip visible.
+- The damage value should be right-aligned in each row to support fast scanning, similar to `KP` chips in evolution items.
+- Keep `KP` and `Schaden` visually distinct by using different chip colors.
+- Keep the section card-based and scan-friendly on phone and iPad widths.
+- The full attack section may load after the main detail shell and must not block hero, evolution, or fact rendering.
+
 ## Evolution Summary
 
 - Show the current evolution stage label.
@@ -130,6 +147,8 @@ Presentation rules:
 - Missing optional hero description must not cause the core hero identity block to noticeably jump between related Pokemon.
 - If no suitable official attacks remain after filtering, keep the artwork-card back side usable and show a short German fallback message instead of leaving the surface empty.
 - If only one suitable official attack remains after filtering, show exactly one attack item instead of filler content.
+- If no official attacks are available for the full attack list section, show a short German empty message in that section.
+- If one or more move endpoints fail while loading the full attack section, keep already loaded rows visible and show a section-level partial warning with retry action.
 
 ### Attack Back Side
 
@@ -216,6 +235,9 @@ Implementation notes:
 - Artwork, German name, `#ID`, type chips, optional stage badge, and optional short description form one cohesive identity block.
 - The artwork card can flip between artwork and attack back side without moving the surrounding hero structure.
 - Key facts are rendered as cards and remain easy to scan.
+- The full attack list is shown as the lowest detail section and remains readable on phone and iPad widths.
+- Every attack row in the full list keeps a short description visible.
+- The full attack list can show a loading, partial, or retry state without blocking the rest of the detail page.
 - Optional sections disappear cleanly when data is unavailable.
 - The detail page remains readable and touch-friendly on phone and iPad widths defined in `DESIGN_BRIEF.md`.
 - Switching between related Pokemon from inside the detail page does not cause a full-page loading jump that breaks the user's spatial orientation.
@@ -242,6 +264,12 @@ Implementation notes:
 - When available, the short German flavor text appears inside the hero instead of as a separate later section.
 - The evolution summary appears before the key facts section.
 - The page exposes an evolution summary with the current stage and visual navigation for all visible chain items when available.
+- The page exposes a bottom section `Alle Angriffe` with all official attacks of the selected Pokemon.
+- Each attack row in that section shows German name, a short German description, German type, and a compact `{damage}` chip only when an official damage value exists.
+- Damage labels are right-aligned inside each row.
+- Damage and `KP` chips use different colors.
+- The full attack section loads independently and must not delay the first successful detail render.
+- If the full attack section only loads partially, the UI keeps visible rows and shows a retry action.
 - The back action remains visible in loading, error, and not-found states.
 - Loading, error, retry, not-found, and missing-data behavior are all present and distinguishable.
 - Optional hero description and category are hidden completely when their required data is unavailable or not suitable for child-friendly display.

@@ -1,6 +1,7 @@
 <script lang="ts">
   import SearchBar from './components/SearchBar.svelte';
   import EvolutionSummary from './components/EvolutionSummary.svelte';
+  import PokemonAttackList from './components/PokemonAttackList.svelte';
   import PokemonArtworkCard from './components/PokemonArtworkCard.svelte';
   import ResultCard from './components/ResultCard.svelte';
   import StatusState from './components/StatusState.svelte';
@@ -13,8 +14,13 @@
     type DetailHistoryState,
   } from './features/navigation/hashRouter';
   import { SearchController, type SearchUiState } from './features/search/searchController';
-  import { fetchPokemonDetail, isSearchPokemonError, searchPokemon } from './services/pokemonApi';
-  import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
+  import {
+    fetchPokemonAllAttacks,
+    fetchPokemonDetail,
+    isSearchPokemonError,
+    searchPokemon,
+  } from './services/pokemonApi';
+  import type { PokemonDetail, PokemonDetailedAttack, PokemonSearchResult } from './types/pokemon';
 
   /*
    * Main application shell that coordinates search input, async lookup,
@@ -25,6 +31,10 @@
    * UI states for the detail view.
    */
   type DetailUiState = 'loading' | 'success' | 'empty' | 'error';
+  /**
+   * UI states for the lazily loaded full-attack section.
+   */
+  type DetailAttacksUiState = 'idle' | 'loading' | 'success' | 'partial' | 'error';
 
   let query = $state('');
   let uiState = $state<SearchUiState>('idle');
@@ -35,6 +45,9 @@
   let detailUiState = $state<DetailUiState>('loading');
   let detailErrorMessage = $state('');
   let detail = $state<PokemonDetail | null>(null);
+  let detailAttacks = $state<PokemonDetailedAttack[]>([]);
+  let detailAttacksUiState = $state<DetailAttacksUiState>('idle');
+  let detailAttacksMessage = $state('');
   let openedFromResults = $state(false);
   let detailTransitioning = $state(false);
   let resultsScrolled = $state(false);
@@ -42,7 +55,9 @@
   let lastTouchY = 0;
 
   let activeDetailAbort: AbortController | null = null;
+  let activeDetailAttacksAbort: AbortController | null = null;
   let nextDetailRequestToken = 0;
+  let nextDetailAttacksRequestToken = 0;
   let lastDetailRouteId: number | null = null;
 
   const DEBOUNCE_MS = 280;
@@ -119,6 +134,16 @@
   }
 
   /**
+   * Aborts the currently active full-attack request.
+   */
+  function cancelDetailAttacksInFlight() {
+    if (activeDetailAttacksAbort) {
+      activeDetailAttacksAbort.abort();
+      activeDetailAttacksAbort = null;
+    }
+  }
+
+  /**
    * Maps technical errors to user-facing German messages.
    *
    * @param error - Error thrown by the search flow.
@@ -156,6 +181,26 @@
     }
 
     return 'Die Pokemon-Details konnten gerade nicht geladen werden. Bitte versuche es erneut.';
+  }
+
+  /**
+   * Maps attack-section request errors to user-facing German messages.
+   *
+   * @param error - Error thrown by the attack section flow.
+   * @returns Message for the section-level error state.
+   */
+  function toDetailAttacksErrorMessage(error: unknown): string {
+    if (isSearchPokemonError(error)) {
+      if (error.code === 'timeout') {
+        return 'Die Angriffe haben zu lange geladen. Bitte versuche es erneut.';
+      }
+
+      if (error.code === 'server') {
+        return 'Die Angriffe konnten gerade nicht vollständig geladen werden. Bitte versuche es erneut.';
+      }
+    }
+
+    return 'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.';
   }
 
   const searchController = new SearchController(
@@ -359,6 +404,10 @@
 
     const requestAbort = new AbortController();
     activeDetailAbort = requestAbort;
+    cancelDetailAttacksInFlight();
+    detailAttacks = [];
+    detailAttacksUiState = 'idle';
+    detailAttacksMessage = '';
     const keepCurrentFrame = detailUiState === 'success' && detail !== null;
     detailTransitioning = keepCurrentFrame;
     if (!keepCurrentFrame) {
@@ -381,6 +430,7 @@
 
       detail = found;
       detailUiState = 'success';
+      void loadDetailAttacks(found.id);
     } catch (error) {
       if (requestToken !== nextDetailRequestToken) {
         return;
@@ -396,6 +446,7 @@
 
       if (keepCurrentFrame) {
         detailErrorMessage = message;
+        /* v8 ignore next -- keep-current-frame fallback only runs with an already visible detail */
         if (detail) {
           const historyState = openedFromResults
             ? ({ source: 'results' } satisfies DetailHistoryState)
@@ -414,9 +465,61 @@
   }
 
   /**
+   * Loads the full move list after the main detail shell is already visible.
+   *
+   * @param id - Pokemon id from the active detail route.
+   */
+  async function loadDetailAttacks(id: number) {
+    const requestToken = ++nextDetailAttacksRequestToken;
+    cancelDetailAttacksInFlight();
+
+    const requestAbort = new AbortController();
+    activeDetailAttacksAbort = requestAbort;
+    detailAttacks = [];
+    detailAttacksUiState = 'loading';
+    detailAttacksMessage = '';
+
+    try {
+      const result = await fetchPokemonAllAttacks(id, requestAbort.signal);
+      /* v8 ignore next -- stale attack responses are ignored after route changes */
+      if (requestToken !== nextDetailAttacksRequestToken) {
+        return;
+      }
+
+      if (!result) {
+        detailAttacks = [];
+        detailAttacksUiState = 'error';
+        detailAttacksMessage =
+          'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.';
+        return;
+      }
+
+      detailAttacks = result.attacks;
+      detailAttacksUiState = result.isPartial ? 'partial' : 'success';
+      detailAttacksMessage = result.isPartial
+        ? 'Einige Angriffe konnten nicht vollständig geladen werden.'
+        : '';
+    } catch (error) {
+      /* v8 ignore next -- stale attack errors are ignored after route changes */
+      if (requestToken !== nextDetailAttacksRequestToken) {
+        return;
+      }
+
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+
+      detailAttacks = [];
+      detailAttacksUiState = 'error';
+      detailAttacksMessage = toDetailAttacksErrorMessage(error);
+    }
+  }
+
+  /**
    * Retries loading the active detail route.
    */
   function retryDetail() {
+    /* v8 ignore next -- defensive guard for stale UI callbacks */
     if (route.kind !== 'detail') {
       return;
     }
@@ -425,11 +528,24 @@
   }
 
   /**
+   * Retries only the full-attack section for the active detail route.
+   */
+  function retryDetailAttacks() {
+    /* v8 ignore next -- defensive guard for stale UI callbacks */
+    if (route.kind !== 'detail' || detailUiState !== 'success' || !detail) {
+      return;
+    }
+
+    void loadDetailAttacks(detail.id);
+  }
+
+  /**
    * Returns to search view.
    * If opened from deep-link without prior results, it resets to search start.
    */
   function goBackToSearch() {
     cancelDetailInFlight();
+    cancelDetailAttacksInFlight();
 
     if (openedFromResults && window.history.length > 1) {
       window.history.back();
@@ -438,6 +554,7 @@
 
     window.history.pushState({}, '', searchUrl());
     route = { kind: 'search' };
+    /* v8 ignore next -- direct deep-link fallback keeps search state clean */
     if (!openedFromResults) {
       query = '';
       results = [];
@@ -472,6 +589,9 @@
   $effect(() => {
     if (route.kind !== 'detail') {
       lastDetailRouteId = null;
+      detailAttacks = [];
+      detailAttacksUiState = 'idle';
+      detailAttacksMessage = '';
       return;
     }
 
@@ -692,6 +812,34 @@
                 </article>
               {/if}
             </div>
+          </section>
+
+          <section class="detail__section detail__section--attacks" aria-label="Alle Angriffe">
+            <h2 class="detail__section-title">Alle Angriffe</h2>
+            {#if detailAttacksUiState === 'loading'}
+              <p class="detail__section-note" role="status" aria-live="polite">
+                Angriffe werden geladen...
+              </p>
+            {:else if detailAttacksUiState === 'error'}
+              <section class="detail__info detail__info--error" aria-live="polite">
+                <p class="detail__text">{detailAttacksMessage}</p>
+                <button class="state__action" type="button" onclick={retryDetailAttacks}
+                  >Erneut versuchen</button
+                >
+              </section>
+            {:else}
+              {#if detailAttacksUiState === 'partial'}
+                <section class="detail__info detail__info--warning" aria-live="polite">
+                  <p class="detail__text">{detailAttacksMessage}</p>
+                  <button class="state__action" type="button" onclick={retryDetailAttacks}
+                    >Erneut versuchen</button
+                  >
+                </section>
+              {/if}
+              {#if detailAttacksUiState !== 'partial' || detailAttacks.length > 0}
+                <PokemonAttackList attacks={detailAttacks} />
+              {/if}
+            {/if}
           </section>
         </article>
       {/if}

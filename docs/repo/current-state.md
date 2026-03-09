@@ -11,6 +11,8 @@ The current repo includes:
 - scroll-reactive compact/expanded header behavior in search results view
 - dedicated Pokemon detail pages with clear `KP` display near the name when available from API
 - detail hero artwork card that can flip to `1` to `2` curated official attacks with German names, German type labels, and official damage values
+- dedicated bottom detail tile `Alle Angriffe` listing all official attacks with German names, short German descriptions, German type labels, and compact right-aligned damage chips only when an official damage value exists
+- the full attack tile loads after the main detail shell and can show partial/retry feedback without blocking the rest of the detail page
 - stage-based visual evolution board (`Basis`, `Phase 1`, `Phase 2`) inside the detail page
 - branch-readable evolution summary with subtle directional cues, German type chips, and visible `KP` on evolution items (when API data exists)
 - hash-based deep linking for Pokemon detail pages (`#/pokemon/:id`)

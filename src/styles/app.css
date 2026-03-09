@@ -695,7 +695,7 @@ input:focus-visible {
 
 .detail-artwork-card__attack-meta {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
@@ -711,9 +711,11 @@ input:focus-visible {
 }
 
 .detail-artwork-card__attack-damage {
-  background: #fff1d8;
-  border: 1px solid #e8bf77;
-  color: #3b2a0f;
+  margin-left: auto;
+  white-space: nowrap;
+  background: #ffe8e8;
+  border: 1px solid #f0b6b6;
+  color: #6f1717;
 }
 
 .detail-artwork-card__attack-type {
@@ -846,6 +848,11 @@ input:focus-visible {
   background: #fff2f2;
 }
 
+.detail__info--warning {
+  border: 1px solid #f0d79e;
+  background: #fff8e8;
+}
+
 .meta-chip--detail {
   justify-self: start;
 }
@@ -865,6 +872,10 @@ input:focus-visible {
 
 .detail__section--facts {
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.detail__section--attacks {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
 }
 
 .detail__section-head {
@@ -907,6 +918,72 @@ input:focus-visible {
   margin: var(--space-1) 0 0;
   font-size: clamp(1.4rem, 3.8vw, 1.8rem);
   font-weight: 700;
+}
+
+.attack-list {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.attack-list__item {
+  background: linear-gradient(180deg, #eef4ff 0%, #e6efff 100%);
+  border: 1px solid #d3e0f5;
+  border-radius: var(--radius-input);
+  padding: var(--space-3);
+  display: grid;
+  gap: 8px;
+}
+
+.attack-list__name {
+  margin: 0;
+  font-size: clamp(1.15rem, 3.3vw, 1.35rem);
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.attack-list__description {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.attack-list__meta {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attack-list__type,
+.attack-list__damage {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.attack-list__type {
+  background: #e8f0ff;
+  border: 1px solid #cddbf3;
+}
+
+.attack-list__damage {
+  margin-left: auto;
+  white-space: nowrap;
+  background: #ffe8e8;
+  border: 1px solid #f0b6b6;
+  color: #6f1717;
+}
+
+.attack-list__empty {
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
 }
 
 .detail__text {

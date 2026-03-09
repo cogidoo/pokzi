@@ -739,6 +739,254 @@ async function routeTextSearchScrollable(page: Page) {
   await routeTextSearchWithCount(page, 12);
 }
 
+async function routeDetailAttacksLoadingAndPartialRetry(page: Page) {
+  let slowMoveAttempt = 0;
+  let releaseSlowMove: (() => void) | null = null;
+  const slowMoveGate = new Promise<void>((resolve) => {
+    releaseSlowMove = resolve;
+  });
+
+  await page.route('https://pokeapi.co/api/v2/**', async (route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname === '/api/v2/pokemon-species' && url.searchParams.get('limit') === '1400') {
+      return json(route, {
+        results: [{ name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/25') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Pikachu' },
+          { language: { name: 'de' }, name: 'Pikachu' },
+        ],
+        flavor_text_entries: [
+          {
+            language: { name: 'de' },
+            flavor_text: 'Ein kurzer Text fuer die Detailansicht.',
+          },
+        ],
+        evolution_chain: {
+          url: 'https://pokeapi.co/api/v2/evolution-chain/10/',
+        },
+      });
+    }
+
+    if (url.pathname === '/api/v2/evolution-chain/10') {
+      return json(route, {
+        chain: {
+          species: { name: 'pichu', url: 'https://pokeapi.co/api/v2/pokemon-species/172/' },
+          evolves_to: [
+            {
+              species: { name: 'pikachu', url: 'https://pokeapi.co/api/v2/pokemon-species/25/' },
+              evolves_to: [
+                {
+                  species: { name: 'raichu', url: 'https://pokeapi.co/api/v2/pokemon-species/26/' },
+                  evolves_to: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/172') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Pichu' },
+          { language: { name: 'de' }, name: 'Pichu' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon-species/26') {
+      return json(route, {
+        names: [
+          { language: { name: 'en' }, name: 'Raichu' },
+          { language: { name: 'de' }, name: 'Raichu' },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/25') {
+      return json(route, {
+        id: 25,
+        name: 'pikachu',
+        height: 4,
+        weight: 60,
+        stats: [{ base_stat: 35, stat: { name: 'hp' } }],
+        sprites: {
+          front_default: 'https://img.test/pikachu-sprite.png',
+          other: {
+            'official-artwork': { front_default: 'https://img.test/pikachu.png' },
+          },
+        },
+        moves: [
+          {
+            move: {
+              name: 'quick-attack',
+              url: 'https://pokeapi.co/api/v2/move/quick-attack',
+            },
+            version_group_details: [
+              {
+                level_learned_at: 1,
+                move_learn_method: { name: 'level-up' },
+                version_group: { name: 'red-blue' },
+              },
+            ],
+          },
+          {
+            move: {
+              name: 'thunder-shock',
+              url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+            },
+            version_group_details: [
+              {
+                level_learned_at: 2,
+                move_learn_method: { name: 'level-up' },
+                version_group: { name: 'red-blue' },
+              },
+            ],
+          },
+          {
+            move: {
+              name: 'broken-move',
+              url: 'https://pokeapi.co/api/v2/move/broken-move',
+            },
+            version_group_details: [
+              {
+                level_learned_at: 0,
+                move_learn_method: { name: 'machine' },
+                version_group: { name: 'red-blue' },
+              },
+            ],
+          },
+          {
+            move: {
+              name: 'slow-move',
+              url: 'https://pokeapi.co/api/v2/move/slow-move',
+            },
+            version_group_details: [
+              {
+                level_learned_at: 0,
+                move_learn_method: { name: 'tutor' },
+                version_group: { name: 'red-blue' },
+              },
+            ],
+          },
+        ],
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/pichu') {
+      return json(route, {
+        id: 172,
+        name: 'pichu',
+        height: 3,
+        weight: 20,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/pichu.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/pokemon/raichu') {
+      return json(route, {
+        id: 26,
+        name: 'raichu',
+        height: 8,
+        weight: 300,
+        sprites: {
+          other: {
+            'official-artwork': { front_default: 'https://img.test/raichu.png' },
+          },
+        },
+        types: [{ type: { name: 'electric' } }],
+      });
+    }
+
+    if (url.pathname === '/api/v2/move/quick-attack') {
+      return json(route, {
+        name: 'quick-attack',
+        power: 30,
+        type: { name: 'normal' },
+        names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+        flavor_text_entries: [
+          {
+            language: { name: 'de' },
+            flavor_text: 'Ein schneller Vorstoss.',
+          },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/move/thunder-shock') {
+      return json(route, {
+        name: 'thunder-shock',
+        power: 40,
+        type: { name: 'electric' },
+        names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+        flavor_text_entries: [
+          {
+            language: { name: 'de' },
+            flavor_text: 'Ein kurzer Elektroschock.',
+          },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/move/broken-move') {
+      slowMoveAttempt += 1;
+      if (slowMoveAttempt === 1) {
+        return json(route, {}, 500);
+      }
+
+      return json(route, {
+        name: 'broken-move',
+        power: 70,
+        type: { name: 'electric' },
+        names: [{ language: { name: 'de' }, name: 'Reparaturblitz' }],
+        flavor_text_entries: [
+          {
+            language: { name: 'de' },
+            flavor_text: 'Laedt kurz Energie auf.',
+          },
+        ],
+      });
+    }
+
+    if (url.pathname === '/api/v2/move/slow-move') {
+      await slowMoveGate;
+      return json(route, {
+        name: 'slow-move',
+        power: 90,
+        type: { name: 'electric' },
+        names: [{ language: { name: 'de' }, name: 'Donnerschlag' }],
+        flavor_text_entries: [
+          {
+            language: { name: 'de' },
+            flavor_text: 'Trifft das Ziel mit viel Kraft.',
+          },
+        ],
+      });
+    }
+
+    return json(route, {}, 404);
+  });
+
+  return {
+    releaseSlowMove() {
+      releaseSlowMove?.();
+    },
+  };
+}
+
 test('zeigt initialen Such-Hinweis', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Suche starten' })).toBeVisible();
@@ -816,6 +1064,42 @@ test('Ergebniskarte öffnet Detailansicht und Zurück behält Suchliste', async 
   await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pikachu' })).toBeVisible();
   await expect(page.getByLabel('Pokemon suchen')).toHaveValue('pika');
+});
+
+test('Alle-Angriffe-Sektion lädt separat, zeigt partiellen Hinweis und Retry', async ({ page }) => {
+  const attacksFlow = await routeDetailAttacksLoadingAndPartialRetry(page);
+  await page.goto('/');
+
+  await page.getByLabel('Pokemon suchen').fill('pika');
+  await page.getByRole('button', { name: 'Suchen' }).click();
+  await page.getByRole('button', { name: /Pikachu/i }).click();
+
+  await expect(page.getByRole('heading', { name: 'Pikachu' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Wichtige Fakten' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Alle Angriffe' })).toBeVisible();
+  await expect(page.getByText('Angriffe werden geladen...')).toBeVisible();
+
+  attacksFlow.releaseSlowMove();
+
+  await expect(
+    page.getByText('Einige Angriffe konnten nicht vollständig geladen werden.'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Alle Angriffe' }).getByText('Ruckzuckhieb'),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Erneut versuchen' }).click();
+
+  await expect(
+    page.getByRole('list', { name: 'Alle Angriffe' }).getByText('Reparaturblitz'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Alle Angriffe' }).getByText('Donnerschlag'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Einige Angriffe konnten nicht vollständig geladen werden.'),
+  ).toHaveCount(0);
 });
 
 test('Deep-Link auf Detailseite kann zur Suchstartseite zurücknavigieren', async ({ page }) => {

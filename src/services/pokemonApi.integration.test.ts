@@ -80,6 +80,16 @@ function inputToUrl(input: unknown): string {
   throw new Error('Unexpected fetch input type');
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 function speciesNames(de: string | null, evolutionChainId?: number) {
   const names = [{ language: { name: 'en' }, name: 'english-name' }];
   if (de) {
@@ -1688,14 +1698,44 @@ describe('searchPokemon (German names)', () => {
       return Promise.resolve(asResponse({}, false, 404));
     });
 
-    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const { fetchPokemonAllAttacks, fetchPokemonDetail } = await import('./pokemonApi');
     const detail = await fetchPokemonDetail(25);
+    const attacksResult = await fetchPokemonAllAttacks(25);
 
     expect(detail?.sprite).toBe('https://img/pikachu-sprite.png');
     expect(detail?.attacks).toEqual([
       { name: 'Ruckzuckhieb', damage: '30', typeName: 'Normal' },
       { name: 'Donnerschock', damage: '40', typeName: 'Elektro' },
     ]);
+    expect(attacksResult).toEqual({
+      isPartial: false,
+      attacks: [
+        {
+          name: 'Donnerblitz',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: '90',
+          typeName: 'Elektro',
+        },
+        {
+          name: 'Donnerschock',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: '40',
+          typeName: 'Elektro',
+        },
+        {
+          name: 'Heuler',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: null,
+          typeName: 'Normal',
+        },
+        {
+          name: 'Ruckzuckhieb',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: '30',
+          typeName: 'Normal',
+        },
+      ],
+    });
   });
 
   it('prefers attacks that do not duplicate earlier visible evolution stages when alternatives exist', async () => {
@@ -2241,10 +2281,28 @@ describe('searchPokemon (German names)', () => {
       return Promise.resolve(asResponse({}, false, 404));
     });
 
-    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const { fetchPokemonAllAttacks, fetchPokemonDetail } = await import('./pokemonApi');
     const detail = await fetchPokemonDetail(151);
+    const attacksResult = await fetchPokemonAllAttacks(151);
 
     expect(detail?.attacks).toEqual([]);
+    expect(attacksResult).toEqual({
+      isPartial: false,
+      attacks: [
+        {
+          name: 'Heuler',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: null,
+          typeName: 'Normal',
+        },
+        {
+          name: 'Platscher',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: null,
+          typeName: 'Normal',
+        },
+      ],
+    });
   });
 
   it('falls back to move endpoint url and formatted names when localized move metadata is missing', async () => {
@@ -2273,6 +2331,12 @@ describe('searchPokemon (German names)', () => {
             name: 'mystic-pulse',
             power: 55,
             type: { name: 'shadow' },
+            flavor_text_entries: [
+              {
+                language: { name: 'de' },
+                flavor_text: 'Lädt kurz Energie auf\nund trifft dann das Ziel.',
+              },
+            ],
           }),
         );
       }
@@ -2280,10 +2344,465 @@ describe('searchPokemon (German names)', () => {
       return Promise.resolve(asResponse({}, false, 404));
     });
 
-    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const { fetchPokemonAllAttacks, fetchPokemonDetail } = await import('./pokemonApi');
     const detail = await fetchPokemonDetail(7);
+    const attacksResult = await fetchPokemonAllAttacks(7);
 
     expect(detail?.attacks).toEqual([{ name: 'Mystic Pulse', damage: '55', typeName: 'Shadow' }]);
+    expect(attacksResult).toEqual({
+      isPartial: false,
+      attacks: [
+        {
+          name: 'Mystic Pulse',
+          description: 'Lädt kurz Energie auf und trifft dann das Ziel.',
+          damage: '55',
+          typeName: 'Shadow',
+        },
+      ],
+    });
+  });
+
+  it('does not block the main detail payload on slower full-attack lookups', async () => {
+    const pendingExtraMove = deferred<Response>();
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'thunder-shock',
+                  url: 'https://pokeapi.co/api/v2/move/thunder-shock',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 2,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'slow-move',
+                  url: 'https://pokeapi.co/api/v2/move/slow-move',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 3,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/25')) {
+        return Promise.resolve(asResponse(speciesNames('Pikachu')));
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 30,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/thunder-shock')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'thunder-shock',
+            power: 40,
+            type: { name: 'electric' },
+            names: [{ language: { name: 'de' }, name: 'Donnerschock' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/slow-move')) {
+        return pendingExtraMove.promise;
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(25);
+
+    expect(detail?.displayName).toBe('Pikachu');
+    expect(detail?.attacks).toEqual([
+      { name: 'Ruckzuckhieb', damage: '30', typeName: 'Normal' },
+      { name: 'Donnerschock', damage: '40', typeName: 'Elektro' },
+    ]);
+
+    pendingExtraMove.resolve(
+      asResponse({
+        name: 'slow-move',
+        power: 70,
+        type: { name: 'normal' },
+        names: [{ language: { name: 'de' }, name: 'Langsamhieb' }],
+      }),
+    );
+  });
+
+  it('marks the full attack list as partial when a move endpoint fails', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'broken-move',
+                  url: 'https://pokeapi.co/api/v2/move/broken-move',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 2,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 30,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/broken-move')) {
+        throw new Error('boom');
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonAllAttacks } = await import('./pokemonApi');
+    const result = await fetchPokemonAllAttacks(25);
+
+    expect(result).toEqual({
+      isPartial: true,
+      attacks: [
+        {
+          name: 'Ruckzuckhieb',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: '30',
+          typeName: 'Normal',
+        },
+      ],
+    });
+  });
+
+  it('marks the full attack list as partial when a move endpoint responds with 404', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+              {
+                move: {
+                  name: 'missing-move',
+                  url: 'https://pokeapi.co/api/v2/move/missing-move',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 2,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 30,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/missing-move')) {
+        return Promise.resolve(asResponse({}, false, 404));
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonAllAttacks } = await import('./pokemonApi');
+    const result = await fetchPokemonAllAttacks(25);
+
+    expect(result).toEqual({
+      isPartial: true,
+      attacks: [
+        {
+          name: 'Ruckzuckhieb',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: '30',
+          typeName: 'Normal',
+        },
+      ],
+    });
+  });
+
+  it('returns null for the full attack list when the pokemon endpoint responds with 404', async () => {
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(asResponse({}, false, 404)));
+
+    const { fetchPokemonAllAttacks } = await import('./pokemonApi');
+
+    await expect(fetchPokemonAllAttacks(999999)).resolves.toBeNull();
+  });
+
+  it('rethrows aborts while loading the full attack list', async () => {
+    const controller = new AbortController();
+
+    vi.mocked(fetch).mockImplementation((input, init) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        const signal = init?.signal;
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonAllAttacks } = await import('./pokemonApi');
+    const request = fetchPokemonAllAttacks(25, controller.signal);
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('reuses the cached full attack list across repeated requests for the same id', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 30,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonAllAttacks } = await import('./pokemonApi');
+    const first = await fetchPokemonAllAttacks(25);
+    const second = await fetchPokemonAllAttacks(25);
+
+    expect(first).toEqual(second);
+    expect(
+      vi.mocked(fetch).mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon/25')).length,
+    ).toBe(1);
+  });
+
+  it('ignores duplicate canonical move entries in the full attack list', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                  {
+                    level_learned_at: 11,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'yellow' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'quick-attack',
+            power: 30,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Ruckzuckhieb' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonAllAttacks } = await import('./pokemonApi');
+    const result = await fetchPokemonAllAttacks(25);
+
+    expect(result).toEqual({
+      isPartial: false,
+      attacks: [
+        {
+          name: 'Ruckzuckhieb',
+          description: 'Keine Kurzbeschreibung verfügbar.',
+          damage: '30',
+          typeName: 'Normal',
+        },
+      ],
+    });
+  });
+
+  it('rethrows aborts while crawling move endpoints for the full attack list', async () => {
+    const controller = new AbortController();
+
+    vi.mocked(fetch).mockImplementation((input, init) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/25')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(25, 'pikachu', 'https://img/pikachu.png', [
+              {
+                move: {
+                  name: 'quick-attack',
+                  url: 'https://pokeapi.co/api/v2/move/quick-attack',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 1,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/move/quick-attack')) {
+        const signal = init?.signal;
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonAllAttacks } = await import('./pokemonApi');
+    const request = fetchPokemonAllAttacks(25, controller.signal);
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   it('keeps later attack candidates when an earlier move lookup fails transiently', async () => {
@@ -3721,7 +4240,7 @@ describe('searchPokemon (German names)', () => {
     const chainCalls = vi
       .mocked(fetch)
       .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/evolution-chain/10')).length;
-    expect(pokemon25Calls).toBe(2);
+    expect(pokemon25Calls).toBe(1);
     expect(chainCalls).toBe(2);
   });
 
