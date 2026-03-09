@@ -1053,7 +1053,7 @@ test('Ergebniskarte öffnet Detailansicht und Zurück behält Suchliste', async 
   await page.getByRole('button', { name: /Pikachu/i }).click();
 
   await expect(page.getByRole('heading', { name: 'Wichtige Fakten' })).toBeVisible();
-  await expect(page.getByLabel('KP 35')).toBeVisible();
+  await expect(page.locator('.detail__kp').getByText('KP 35')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zu Pichu wechseln' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zu Raichu wechseln' })).toBeVisible();
   await expect(page.getByLabel('KP 20')).toBeVisible();

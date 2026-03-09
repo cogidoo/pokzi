@@ -140,6 +140,7 @@ const searchResultCache = new Map<number, Omit<PokemonSearchResult, 'matchQualit
 const evolutionItemCache = new Map<number, PokemonEvolutionTile | null>();
 const detailCache = new Map<number, PokemonDetail>();
 const pokemonResponseCache = new Map<number, PokemonResponse>();
+const evolutionTilePokemonCache = new Map<number, PokemonResponse>();
 const allAttacksCache = new Map<number, PokemonAllAttacksResult>();
 const moveAttackCache = new Map<string, PokemonDetailedAttack | null>();
 const moveAttackPromiseCache = new Map<string, Promise<PokemonDetailedAttack | null>>();
@@ -273,6 +274,33 @@ async function fetchPokemonData(id: number, signal?: AbortSignal): Promise<Pokem
 
     throw error;
   }
+}
+
+/**
+ * Loads one Pokemon payload for evolution tiles by canonical name and falls back
+ * to the species id when form/name lookups do not resolve to a concrete Pokemon endpoint.
+ *
+ * @param pokemonName - Canonical Pokemon name from the evolution-chain node.
+ * @param speciesId - Species id used as stable fallback lookup.
+ * @param signal - Optional cancellation signal.
+ * @returns Raw Pokemon payload or `null` when neither lookup resolves.
+ */
+async function fetchEvolutionTilePokemonData(
+  pokemonName: string,
+  speciesId: number,
+  signal?: AbortSignal,
+): Promise<PokemonResponse | null> {
+  try {
+    const pokemon = await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${pokemonName}`, signal);
+    evolutionTilePokemonCache.set(speciesId, pokemon);
+    return pokemon;
+  } catch (error) {
+    if (!isHttpStatusError(error, 404)) {
+      throw error;
+    }
+  }
+
+  return fetchPokemonData(speciesId, signal);
 }
 
 /**
@@ -618,7 +646,11 @@ async function fetchPokemonMoveNames(id: number, signal?: AbortSignal): Promise<
     return cached;
   }
 
-  const pokemon = await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${String(id)}`, signal);
+  const pokemon =
+    pokemonResponseCache.get(id) ??
+    evolutionTilePokemonCache.get(id) ??
+    (await fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${String(id)}`, signal));
+  pokemonResponseCache.set(id, pokemon);
   const moveNames = new Set((pokemon.moves ?? []).map((entry) => entry.move.name));
   pokemonMoveNameCache.set(id, moveNames);
   return moveNames;
@@ -1003,15 +1035,7 @@ async function resolveEvolutionItem(
 
   const [species, pokemon] = await Promise.all([
     fetchPokemonSpecies(speciesId, signal),
-    fetchJson<PokemonResponse>(`${POKE_API}/pokemon/${node.species.name}`, signal).catch(
-      (error: unknown) => {
-        if (isHttpStatusError(error, 404)) {
-          return null;
-        }
-
-        throw error;
-      },
-    ),
+    fetchEvolutionTilePokemonData(node.species.name, speciesId, signal),
   ]);
 
   const displayName = getGermanNameFromSpecies(species) ?? node.species.name;

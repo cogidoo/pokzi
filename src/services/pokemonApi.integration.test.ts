@@ -3369,6 +3369,114 @@ describe('searchPokemon (German names)', () => {
     ).toBe(1);
   });
 
+  it('reuses evolution-tile pokemon data for earlier-stage move-name lookups when the tile name fetch succeeded', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/2')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(2, 'midmon', 'https://img/midmon.png', [
+              {
+                move: {
+                  name: 'mid-only',
+                  url: 'https://pokeapi.co/api/v2/move/mid-only',
+                },
+                version_group_details: [
+                  {
+                    level_learned_at: 10,
+                    move_learn_method: { name: 'level-up' },
+                    version_group: { name: 'red-blue' },
+                  },
+                ],
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/2')) {
+        return Promise.resolve(asResponse(speciesNames('Midmon', 77)));
+      }
+
+      if (url.endsWith('/evolution-chain/77')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'basismon',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/1/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'midmon',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/2/',
+                  },
+                  evolves_to: [],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/1')) {
+        return Promise.resolve(asResponse(speciesNames('Basismon')));
+      }
+
+      if (url.endsWith('/pokemon/basismon')) {
+        return Promise.resolve(
+          asResponse(
+            makePokemon(1, 'basismon', 'https://img/basismon.png', [
+              {
+                move: {
+                  name: 'shared-strike',
+                  url: 'https://pokeapi.co/api/v2/move/shared-strike',
+                },
+              },
+            ]),
+          ),
+        );
+      }
+
+      if (url.endsWith('/move/shared-strike')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'shared-strike',
+            power: 20,
+            type: { name: 'normal' },
+            names: [{ language: { name: 'de' }, name: 'Gemeinschlag' }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/move/mid-only')) {
+        return Promise.resolve(
+          asResponse({
+            name: 'mid-only',
+            power: 30,
+            type: { name: 'fighting' },
+            names: [{ language: { name: 'de' }, name: 'Mitte' }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    await fetchPokemonDetail(2);
+
+    expect(
+      vi.mocked(fetch).mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon/1')).length,
+    ).toBe(0);
+    expect(
+      vi.mocked(fetch)
+        .mock.calls.filter(([url]) => inputToUrl(url).endsWith('/pokemon/basismon')).length,
+    ).toBe(1);
+  });
+
   it('rethrows aborts from earlier-stage move-name lookups', async () => {
     const controller = new AbortController();
 
@@ -3992,7 +4100,12 @@ describe('searchPokemon (German names)', () => {
     expect(detail).not.toBeNull();
     expect(detail?.evolution.stage).toBe('Phase 1');
     expect(detail?.evolution.sharedPath).toEqual([
-      { id: 25, displayName: 'Pikachu', image: null, types: [] },
+      {
+        id: 25,
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+      },
     ]);
     expect(detail?.evolution.branchGroups).toEqual([]);
   });
@@ -4036,7 +4149,12 @@ describe('searchPokemon (German names)', () => {
 
     expect(detail?.evolution.stage).toBe('Phase 1');
     expect(detail?.evolution.sharedPath).toEqual([
-      { id: 25, displayName: 'Pikachu', image: null, types: [] },
+      {
+        id: 25,
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+      },
     ]);
     expect(detail?.evolution.branchGroups).toEqual([]);
   });
@@ -4662,6 +4780,109 @@ describe('searchPokemon (German names)', () => {
     expect(
       detail.evolution.branchGroups.map((group) => group.items.map((item) => item.displayName)),
     ).toEqual([['Aquana', 'Tiefaquana'], ['Blitza']]);
+  });
+
+  it('falls back to species-id pokemon lookup for evolution tiles when the species name endpoint returns 404', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = inputToUrl(input);
+
+      if (url.endsWith('/pokemon/744')) {
+        return Promise.resolve(
+          asResponse({
+            id: 744,
+            name: 'rockruff',
+            height: 5,
+            weight: 92,
+            stats: [{ base_stat: 45, stat: { name: 'hp' } }],
+            sprites: {
+              other: {
+                'official-artwork': {
+                  front_default: 'https://img/rockruff.png',
+                },
+              },
+            },
+            moves: [],
+            types: [{ type: { name: 'rock' } }],
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/744')) {
+        return Promise.resolve(asResponse(speciesNames('Wuffels', 77)));
+      }
+
+      if (url.endsWith('/evolution-chain/77')) {
+        return Promise.resolve(
+          asResponse({
+            chain: {
+              species: {
+                name: 'rockruff',
+                url: 'https://pokeapi.co/api/v2/pokemon-species/744/',
+              },
+              evolves_to: [
+                {
+                  species: {
+                    name: 'lycanroc',
+                    url: 'https://pokeapi.co/api/v2/pokemon-species/745/',
+                  },
+                  evolves_to: [],
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/pokemon-species/745')) {
+        return Promise.resolve(asResponse(speciesNames('Wolwerock')));
+      }
+
+      if (url.endsWith('/pokemon/lycanroc')) {
+        return Promise.resolve(asResponse({}, false, 404));
+      }
+
+      if (url.endsWith('/pokemon/745')) {
+        return Promise.resolve(
+          asResponse({
+            id: 745,
+            name: 'lycanroc-midday',
+            height: 8,
+            weight: 250,
+            stats: [{ base_stat: 75, stat: { name: 'hp' } }],
+            sprites: {
+              other: {
+                'official-artwork': {
+                  front_default: 'https://img/lycanroc-midday.png',
+                },
+              },
+            },
+            moves: [],
+            types: [{ type: { name: 'rock' } }],
+          }),
+        );
+      }
+
+      return Promise.resolve(asResponse({}, false, 404));
+    });
+
+    const { fetchPokemonDetail } = await import('./pokemonApi');
+    const detail = await fetchPokemonDetail(744);
+
+    expect(detail).not.toBeNull();
+    expect(detail?.evolution.branchGroups).toEqual([
+      {
+        originId: 744,
+        items: [
+          {
+            id: 745,
+            displayName: 'Wolwerock',
+            image: 'https://img/lycanroc-midday.png',
+            baseHp: 75,
+            types: [{ name: 'Gestein' }],
+          },
+        ],
+      },
+    ]);
   });
 
   it('splits branch groups when branching starts after one linear intermediate stage', async () => {
