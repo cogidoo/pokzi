@@ -21,15 +21,18 @@ Execution guide for coding agents working in this repository.
 - Every new feature must include a full Markdown documentation review. Update every impacted `.md` file in the repository, not only the primary feature document.
 - Developer-facing code documentation uses TSDoc/JSDoc blocks in English.
 
-## Local Codex Skills
+## Repo Skills
 
-- Local repo skills live under `.codex/skills/`.
-- Use `.codex/skills/orchestrator-agent/SKILL.md` when the user wants routing, workflow selection, review-loop control, standardized handoffs, or one entrypoint coordinating specialist skills.
-- Use `.codex/skills/anforderungs-agent/SKILL.md` when the user asks for requirement intake, scope review, concept writing, acceptance criteria, user flows, or translating vague stakeholder input into a repo-ready concept.
-- Use `.codex/skills/umsetzungs-agent/SKILL.md` when the user asks for implementation, bugfixing, refactoring, hardening, code review, or senior delivery of scoped work in this repository.
-- Use `.codex/skills/ux-ui-agent/SKILL.md` when the user asks for UX/UI direction, visual concepting, accessibility-focused design review, child-friendly interaction design, screen-level refinement, or implementation-ready interface guidance.
-- Use `.codex/skills/software-architekt-agent/SKILL.md` when the user asks for architecture review, technical structure, module boundaries, state/service design, refactor planning, or pragmatic software architecture guidance in this repository.
-- Use `.codex/skills/qa-agent/SKILL.md` when the user asks for QA review, test strategy, requirement validation from a quality perspective, regression-risk analysis, accessibility QA, release-readiness review, or child-friendly/mobile-first quality assessment in this repository.
+- Repo-defined Codex agents live under `.codex/agents/` and are the preferred specialist path for current Codex runtimes.
+- Repo-specific skills live under `.agents/skills/` to follow the official Codex skill layout.
+- Actual specialist execution depends on the active Codex runtime, project trust state, enabled features, and the current approval and sandbox settings.
+- Prefer the repo-defined agents `discovery`, `architecture`, `implementation`, `code_review`, `orchestrator`, and `visual_review` when the runtime supports them.
+- Use `.agents/skills/orchestrator-agent/SKILL.md` when the user wants routing, workflow selection, review-loop control, standardized handoffs, or one entrypoint coordinating specialist skills.
+- Use `.agents/skills/anforderungs-agent/SKILL.md` when the user asks for requirement intake, scope review, concept writing, acceptance criteria, user flows, or translating vague stakeholder input into a repo-ready concept.
+- Use `.agents/skills/umsetzungs-agent/SKILL.md` when the user asks for implementation, bugfixing, refactoring, hardening, code review, or senior delivery of scoped work in this repository.
+- Use `.agents/skills/ux-ui-agent/SKILL.md` when the user asks for UX/UI direction, visual concepting, accessibility-focused design review, child-friendly interaction design, screen-level refinement, or implementation-ready interface guidance.
+- Use `.agents/skills/software-architekt-agent/SKILL.md` when the user asks for architecture review, technical structure, module boundaries, state/service design, refactor planning, or pragmatic software architecture guidance in this repository.
+- Use `.agents/skills/qa-agent/SKILL.md` when the user asks for QA review, test strategy, requirement validation from a quality perspective, regression-risk analysis, accessibility QA, release-readiness review, or child-friendly/mobile-first quality assessment in this repository.
 - The trigger phrases `orchestrator-agent`, `delivery orchestrator`, `workflow orchestrator`, and `review until clean` should explicitly activate that local skill for this repository.
 - The trigger phrases `anforderungs-agent` and `requirements lead` should explicitly activate that local skill for this repository.
 - The trigger phrases `umsetzungs-agent`, `implementierungs-agent`, and `implementation lead` should explicitly activate that local skill for this repository.
@@ -67,9 +70,16 @@ Execution guide for coding agents working in this repository.
 The repository uses one shared delivery operating system:
 
 1. `AGENTS.md` defines the constitution and default operating rules.
-2. `orchestrator-agent` is the required routing layer for multi-stage work.
-3. Specialist skills provide domain depth, not overall task governance.
+2. the repo-defined `orchestrator` agent is the preferred routing layer for multi-stage work.
+3. specialist agents provide domain depth, not overall task governance.
 4. Every multi-stage task must map to one of the standard workflows below.
+
+Runtime note:
+
+- This operating system defines the preferred delivery path and handoff contract.
+- If project-scoped `.codex` settings are inactive because the repo is untrusted, say so explicitly before assuming repo-local workflow guarantees are available.
+- If orchestration is blocked by runtime capability, sandboxing, approval policy, or coordination limits, surface that explicitly and keep any fallback small.
+- If the runtime cannot use repo-defined agents, fall back to the aligned local skills and say so explicitly.
 
 ### Standard Workflow Types
 
@@ -91,7 +101,7 @@ The repository uses one shared delivery operating system:
 
 ### Shared Handoff Schema
 
-Every orchestrated handoff must use the shared template in `.codex/skills/orchestrator-agent/templates/handoff-template.md`.
+Every orchestrated handoff must use the shared template in `.agents/skills/orchestrator-agent/templates/handoff-template.md`.
 
 Required keys:
 
@@ -246,13 +256,15 @@ Treat these as mandatory overlays, not optional afterthoughts:
 3. Read `docs/architecture/*` when planning or changing technical structure.
 4. Read `DESIGN_BRIEF.md` before visual edits.
 5. Classify the task into one workflow type and choose the minimal safe specialist path.
-6. For every new feature, review all repository Markdown files and update every impacted document.
-7. Implement the smallest safe change or produce the correct non-implementation artifact for the workflow.
-8. Add/update TSDoc comments for changed TypeScript behavior (English, concise, junior-friendly).
-9. Run `npm run lint` and `npm run format:check` before handoff.
-10. Run `npm run check` and `npm test` before handoff.
-11. Run `npm run test:e2e` before handoff when E2E setup exists.
-12. Report what changed and why, with file links and the required handoff format.
+6. If the runtime clearly supports orchestration and no meaningful user decision is needed, continue to the next obvious specialist step without waiting.
+7. If the runtime does not support that step, or the project is not trusted, say so explicitly and use the smallest responsible fallback.
+8. For every new feature, review all repository Markdown files and update every impacted document.
+9. Implement the smallest safe change or produce the correct non-implementation artifact for the workflow.
+10. Add/update TSDoc comments for changed TypeScript behavior (English, concise, junior-friendly).
+11. Run `npm run lint` and `npm run format:check` before handoff.
+12. Run `npm run check` and `npm test` before handoff.
+13. Run `npm run test:e2e` before handoff when E2E setup exists.
+14. Report what changed and why, with file links and the required handoff format.
 
 ## Handoff Checklist
 

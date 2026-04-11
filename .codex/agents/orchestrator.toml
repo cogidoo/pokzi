@@ -1,0 +1,2 @@
+profile = "orchestrator"
+model_instructions_file = "orchestrator-instructions.md"

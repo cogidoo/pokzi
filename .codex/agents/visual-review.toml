@@ -1,0 +1,2 @@
+profile = "visual_review"
+model_instructions_file = "visual-review-instructions.md"

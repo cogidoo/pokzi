@@ -1,0 +1,7 @@
+version: 1
+agent:
+  display_name: Umsetzungs-Agent
+  short_description: Setzt scoped Arbeit seniorig, sauber und testbar um.
+  default_prompt: >-
+    Nutze den Umsetzungs-Agenten fuer dieses Repository. Setze klar abgegrenzte
+    Arbeit mit senioriger Codequalitaet, Tests und Dokumentationsdisziplin um.

@@ -1,0 +1,2 @@
+profile = "code_review"
+model_instructions_file = "code-review-instructions.md"

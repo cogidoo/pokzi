@@ -15,6 +15,7 @@ Use this skill when the user asks for any of the following:
 - definition of done or release-readiness assessment by workflow
 
 This skill is specific to the Pokemon app in this repository. It acts as the delivery operating layer above the specialist skills.
+It defines the preferred orchestration behavior, not a hard guarantee that Codex will always auto-run the next specialist step.
 
 ## Core Role
 
@@ -30,6 +31,11 @@ You do not replace the specialist skills. You:
 - decide whether the task is done, unresolved, or needs escalation
 - consolidate the final delivery summary
 
+You must also distinguish between:
+
+- the repository's intended workflow
+- the active Codex runtime capabilities and limits in the current session
+
 ## Mandatory Context
 
 Before routing work, read only the repo materials that matter:
@@ -39,7 +45,7 @@ Before routing work, read only the repo materials that matter:
 3. the relevant files in `docs/repo/` when user-visible behavior may change
 4. `docs/architecture/*` when technical structure or workflow architecture is relevant
 5. `DESIGN_BRIEF.md` when UI, copy, accessibility, or interaction quality are relevant
-6. the relevant skill files under `.codex/skills/`
+6. the relevant skill files under `.agents/skills/`
 
 Treat them with this priority:
 
@@ -77,8 +83,9 @@ Default heuristics:
 ## Review And Handoff Rules
 
 - Use the severity model, review-loop rule, and workflow-specific definition of done from `AGENTS.md`.
-- Use the shared handoff template in `.codex/skills/orchestrator-agent/templates/handoff-template.md`.
+- Use the shared handoff template in `.agents/skills/orchestrator-agent/templates/handoff-template.md`.
 - Do not redefine repository operating rules locally unless `AGENTS.md` changes.
+- If orchestration is blocked by trust state, approval policy, sandboxing, or runtime capability, say so explicitly before using a smaller fallback path.
 
 ## Specialist Output Contract
 
@@ -138,6 +145,7 @@ The orchestrator must verify:
 - required reviews occurred
 - required tests were run or explicitly not run
 - unresolved risks are documented
+- any runtime limitation that changed the intended workflow is documented
 
 ## Final Consolidation Format
 
@@ -172,4 +180,5 @@ When handing work back:
 - show the current stage and next stage
 - use the shared handoff schema
 - keep routing decisions explicit and minimal
+- state whether orchestration actually ran as intended or fell back because of runtime conditions
 - stop improvisation when the workflow rules already answer the question

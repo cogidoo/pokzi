@@ -93,7 +93,7 @@ Specialists do not self-assign the overall workflow. The orchestrator owns seque
 
 ## Shared Handoff Contract
 
-All orchestrated work uses the shared handoff template at `.codex/skills/orchestrator-agent/templates/handoff-template.md`.
+All orchestrated work uses the shared handoff template at `.agents/skills/orchestrator-agent/templates/handoff-template.md`.
 
 The execution-time field list lives in `AGENTS.md`.
 

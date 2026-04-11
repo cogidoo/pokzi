@@ -1,7 +1,38 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
 # Project-local Codex configuration for startai.
-# Repo-specific specialist agents live under `.codex/skills/`.
-# Use the local `anforderungs-agent` skill for requirements intake,
-# scope review, and product concept writing in this repository.
+# This repository uses repo-local skills under `.agents/skills/`.
+# It also sets a conservative runtime baseline for autonomous delivery.
+
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+web_search = "live"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+default_permissions = "project_safe"
+
+[agents]
+max_threads = 4
+max_depth = 2
+job_max_runtime_seconds = 1200
+
+[sandbox_workspace_write]
+network_access = false
+
+[permissions.project_safe.filesystem]
+":project_roots" = "write"
+
+[permissions.project_safe.network]
+enabled = false
+
+[apps.playwright]
+default_tools_approval_mode = "approve"
+
+[apps.context7]
+default_tools_approval_mode = "approve"
+
+[apps.openaiDeveloperDocs]
+default_tools_approval_mode = "approve"
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
@@ -14,6 +45,75 @@ args = [
   "source \"$HOME/.nvm/nvm.sh\" && npx @playwright/mcp@0.0.68 --browser chromium --headless --isolated --output-dir /tmp/playwright-mcp-output"
 ]
 
-experimental_use_rmcp_client = true
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+required = true
+
 [mcp_servers.svelte]
 url = "https://mcp.svelte.dev/mcp"
+
+[agents.discovery]
+description = "Turn rough product requests into clear repo-ready requirements, acceptance criteria, scope boundaries, and execution-ready concept updates."
+config_file = "agents/discovery.toml"
+nickname_candidates = ["Requirements Lead", "Discovery Partner"]
+
+[agents.architecture]
+description = "Define the smallest safe technical structure, module boundaries, refactor direction, and implementation-ready technical decisions for this repository."
+config_file = "agents/architecture.toml"
+nickname_candidates = ["Architecture Lead", "Technical Design Lead"]
+
+[agents.implementation]
+description = "Deliver scoped implementation, bugfix, refactor, hardening, tests, and documentation updates end to end for this repository."
+config_file = "agents/implementation.toml"
+nickname_candidates = ["Implementation Lead", "Delivery Engineer"]
+
+[agents.code_review]
+description = "Perform strict QA and code review with severity-tagged findings, regression analysis, accessibility review, and release-readiness judgment."
+config_file = "agents/code-review.toml"
+nickname_candidates = ["QA Reviewer", "Review Lead"]
+
+[agents.orchestrator]
+description = "Route work across the repository's delivery workflow, choose the minimal safe specialist path, enforce handoffs, and manage review loops."
+config_file = "agents/orchestrator.toml"
+nickname_candidates = ["Workflow Orchestrator", "Delivery Orchestrator"]
+
+[agents.visual_review]
+description = "Review UX and visual direction against the design brief, touch-first child-friendly behavior, accessibility, and rendered UI evidence when available."
+config_file = "agents/visual-review.toml"
+nickname_candidates = ["UX Reviewer", "Visual Design Lead"]
+
+[profiles.discovery]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+web_search = "live"
+personality = "friendly"
+
+[profiles.architecture]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+web_search = "live"
+personality = "pragmatic"
+
+[profiles.implementation]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+web_search = "live"
+personality = "pragmatic"
+
+[profiles.code_review]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+web_search = "live"
+personality = "pragmatic"
+
+[profiles.orchestrator]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+web_search = "live"
+personality = "pragmatic"
+
+[profiles.visual_review]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+web_search = "live"
+personality = "pragmatic"
