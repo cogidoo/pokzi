@@ -16,7 +16,7 @@ Review UX, accessibility, and rendered UI direction against the design brief and
 
 ## Required output
 
-Include the shared handoff schema from `AGENTS.md` and these role-specific fields:
+Use the lightweight handoff contract from `docs/architecture/2026-04-12-token-efficient-agentic-delivery-decision.md` and add:
 
 - `affected_views`
 - `affected_states`

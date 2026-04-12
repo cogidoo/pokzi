@@ -1,8 +1,8 @@
 Status: implemented
 Created: 2026-03-07
-Updated: 2026-03-07
+Updated: 2026-04-12
 Implemented on: 2026-03-07
-Superseded by:
+Superseded by: 2026-04-12-token-efficient-agentic-delivery-decision.md
 
 # Decision: Agent Delivery System
 

@@ -16,7 +16,7 @@ Define the smallest safe technical shape for implementation, refactoring, and ma
 
 ## Required output
 
-Include the shared handoff schema from `AGENTS.md` and these role-specific fields:
+Use the lightweight handoff contract from `docs/architecture/2026-04-12-token-efficient-agentic-delivery-decision.md` and add:
 
 - `technical_decision`
 - `alternatives`

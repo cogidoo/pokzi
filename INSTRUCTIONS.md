@@ -37,6 +37,7 @@ Do not duplicate detailed behavior rules in this file.
 - Code quality: ESLint (flat config) with type-aware strict rules
 - Code documentation: enforce TSDoc/JSDoc via ESLint for TypeScript interfaces, type aliases, classes, methods, and functions
 - Documentation language: English for code comments (UI copy remains German)
+- Markdown language: English for all repository Markdown files
 - Code style: Prettier as single formatter source of truth
 
 ## Delivery Baseline
@@ -65,3 +66,10 @@ Do not duplicate detailed behavior rules in this file.
 - Strong automated test coverage with stable CI checks
 - Deterministic E2E smoke coverage for critical user flows
 - Lint and formatting checks must pass in CI (`npm run lint` + `npm run format:check`)
+
+## Language Split
+
+- User-facing UI copy stays German.
+- Repository Markdown files stay English.
+- Developer-facing code comments and TSDoc/JSDoc stay English.
+- Agent chat with the user stays German unless the user asks otherwise.

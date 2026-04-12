@@ -17,7 +17,7 @@ Pokzi uses structured repo documentation for behavior, scope, and feature concep
 - Keep internal architecture and refactor planning in `docs/architecture/*`.
 - Keep visual/UI direction in `DESIGN_BRIEF.md`.
 - Keep technical and workflow guidance in `INSTRUCTIONS.md` and `AGENTS.md`.
-- Treat `AGENTS.md` as the delivery operating system for local agent work, including workflow routing, review loops, and handoff rules.
+- Treat `AGENTS.md` as the lightweight default contract for local agent work. Keep detailed optional workflow policy in `docs/architecture/*`.
 - If behavior changes, update the relevant file in `docs/repo/` first.
 - Add new feature concepts as separate files under `docs/repo/features/`.
 - Number feature files with two digits in execution order, for example `01-...`, `02-...`.
@@ -43,4 +43,4 @@ The current repo foundation centers on:
 - Current repo definition: `docs/repo/current-state.md`
 - Feature concepts: `docs/repo/features/`
 - Architecture and refactor planning docs: `docs/architecture/`
-- Agent delivery system decision: `docs/architecture/2026-03-07-agent-delivery-system-decision.md`
+- Agent delivery system decisions: `docs/architecture/2026-03-07-agent-delivery-system-decision.md`, `docs/architecture/2026-04-12-token-efficient-agentic-delivery-decision.md`
