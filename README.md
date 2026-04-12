@@ -17,9 +17,7 @@ Built to feel easy for children and maintainable for teams.
 - Child-friendly search flow with immediate feedback.
 - Large, easy-to-tap controls for tablet use.
 - German UI text throughout.
-- Dedicated detail page with prominent `KP` (from API stats) near the name, clear key facts, and a stage-based evolution board where evolution tiles also show `KP` when available.
-- Detail hero artwork can flip to a compact attack view with up to two official attacks, German attack names/type labels, and official damage values.
-- Detail page includes a bottom tile `Alle Angriffe` with all official attacks, short German descriptions, German type labels, and compact right-aligned damage chips that load after the main detail shell.
+- Dedicated detail page with focused artwork, clear key facts, and a stage-based evolution board.
 - Clear messages for loading, no results, and errors.
 
 ## For Developers

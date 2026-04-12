@@ -98,5 +98,5 @@ Adopt a cached result-view-model path for search results:
 
 - Implemented `PokemonSearchResult` caching keyed by Pokemon ID in `pokemonApi.ts`.
 - Reused cached result view models for both text and numeric searches while preserving query-specific `matchQuality`.
-- Added integration tests for repeated-text and repeated-numeric cache reuse plus one additional attack-selection branch coverage test.
+- Added integration tests for repeated-text and repeated-numeric cache reuse.
 - No behavioral scope changes were introduced; no follow-up work is required for this step.

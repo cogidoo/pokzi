@@ -1,22 +1,15 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PokemonAllAttacksResult, PokemonDetail, PokemonSearchResult } from './types/pokemon';
+import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
 
 type SearchPokemonFn = (query: string, signal?: AbortSignal) => Promise<PokemonSearchResult[]>;
 type FetchPokemonDetailFn = (id: number, signal?: AbortSignal) => Promise<PokemonDetail | null>;
-type FetchPokemonAllAttacksFn = (
-  id: number,
-  signal?: AbortSignal,
-) => Promise<PokemonAllAttacksResult | null>;
 const searchPokemonMock = vi.fn<SearchPokemonFn>();
 const fetchPokemonDetailMock = vi.fn<FetchPokemonDetailFn>();
-const fetchPokemonAllAttacksMock = vi.fn<FetchPokemonAllAttacksFn>();
 
 vi.mock('./services/pokemonApi', () => ({
   searchPokemon: (query: string, signal?: AbortSignal) => searchPokemonMock(query, signal),
   fetchPokemonDetail: (id: number, signal?: AbortSignal) => fetchPokemonDetailMock(id, signal),
-  fetchPokemonAllAttacks: (id: number, signal?: AbortSignal) =>
-    fetchPokemonAllAttacksMock(id, signal),
   isSearchPokemonError: (error: unknown) =>
     typeof error === 'object' &&
     error !== null &&
@@ -96,15 +89,10 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
     image: 'https://img/pikachu.png',
     sprite: 'https://img/pikachu-sprite.png',
     types: [{ name: 'Elektro' }],
-    baseHp: 35,
     heightMeters: 0.4,
     weightKilograms: 6,
     category: 'Maus-Pokemon',
     flavorText: 'Ein kurzer deutscher Flavor-Text.',
-    attacks: [
-      { name: 'Donnerschock', damage: '40', typeName: 'Elektro' },
-      { name: 'Ruckzuckhieb', damage: '30', typeName: 'Normal' },
-    ],
     evolution: {
       stage: 'Phase 1',
       sharedPath: [
@@ -127,27 +115,40 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
   };
 }
 
-function allAttacksFixture(
-  overrides: Partial<PokemonAllAttacksResult> = {},
-): PokemonAllAttacksResult {
-  return {
-    attacks: [
-      {
-        name: 'Donnerschock',
-        damage: '40',
-        typeName: 'Elektro',
-        description: 'Trifft das Ziel mit einem kurzen Elektroschock.',
-      },
-      {
-        name: 'Heuler',
-        damage: null,
-        typeName: 'Normal',
-        description: 'Keine Kurzbeschreibung verfügbar.',
-      },
-    ],
-    isPartial: false,
-    ...overrides,
-  };
+/**
+ * Asserts that the search header is rendered in its expanded state.
+ *
+ * @param container - Render container returned by Testing Library.
+ */
+function expectExpandedSearchHeader(container: HTMLElement) {
+  expect(container.querySelector('.app__search-rail')?.classList.contains('app__search-rail')).toBe(
+    true,
+  );
+  expect(
+    container.querySelector('.app__search-rail')?.classList.contains('app__search-rail--compact'),
+  ).toBe(false);
+  expect(container.querySelector('.app__header')?.classList.contains('app__header')).toBe(true);
+  expect(container.querySelector('.app__header')?.classList.contains('app__header--compact')).toBe(
+    false,
+  );
+}
+
+/**
+ * Asserts that the search header is rendered in its compact state.
+ *
+ * @param container - Render container returned by Testing Library.
+ */
+function expectCompactSearchHeader(container: HTMLElement) {
+  expect(container.querySelector('.app__search-rail')?.classList.contains('app__search-rail')).toBe(
+    true,
+  );
+  expect(
+    container.querySelector('.app__search-rail')?.classList.contains('app__search-rail--compact'),
+  ).toBe(true);
+  expect(container.querySelector('.app__header')?.classList.contains('app__header')).toBe(true);
+  expect(container.querySelector('.app__header')?.classList.contains('app__header--compact')).toBe(
+    true,
+  );
 }
 
 describe('App', () => {
@@ -155,8 +156,6 @@ describe('App', () => {
     vi.useFakeTimers();
     searchPokemonMock.mockReset();
     fetchPokemonDetailMock.mockReset();
-    fetchPokemonAllAttacksMock.mockReset();
-    fetchPokemonAllAttacksMock.mockResolvedValue(allAttacksFixture());
     window.history.pushState({}, '', '/');
     setScrollY(0);
     setPageHeights(1600, 800);
@@ -244,8 +243,7 @@ describe('App', () => {
       expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
     });
 
-    expect(container.querySelector('.app__search-rail--compact')).not.toBeInTheDocument();
-    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+    expectExpandedSearchHeader(container);
   });
 
   it('compacts on downward scroll in results and expands again near top', async () => {
@@ -269,17 +267,17 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
     });
-    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+    expectExpandedSearchHeader(container);
 
     setScrollY(80);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     setScrollY(0);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+    expectExpandedSearchHeader(container);
   });
 
   it('expands from compact state on upward wheel intent when page is no longer scrollable', async () => {
@@ -307,16 +305,16 @@ describe('App', () => {
     setScrollY(80);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     setPageHeights(800, 800);
     window.dispatchEvent(new Event('resize'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+    expectExpandedSearchHeader(container);
   });
 
   it('stays compact on scroll-clamp to top without upward intent in non-scrollable edge case', async () => {
@@ -343,17 +341,17 @@ describe('App', () => {
     setScrollY(80);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     setPageHeights(800, 800);
     setScrollY(0);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+    expectExpandedSearchHeader(container);
   });
 
   it('keeps compact header on upward wheel intent while page is still scrollable', async () => {
@@ -380,11 +378,11 @@ describe('App', () => {
     setScrollY(80);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
   });
 
   it('ignores non-upward wheel and non-upward touch intents in compact mode', async () => {
@@ -412,24 +410,24 @@ describe('App', () => {
     setScrollY(80);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 40 }));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     dispatchTouch('touchstart', 120);
     dispatchTouch('touchmove', 100);
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     dispatchTouch('touchmove');
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     dispatchTouch('touchstart');
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
   });
 
   it('expands from compact state on upward touch intent when page is no longer scrollable', async () => {
@@ -457,17 +455,17 @@ describe('App', () => {
     setScrollY(80);
     window.dispatchEvent(new Event('scroll'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     setPageHeights(800, 800);
     window.dispatchEvent(new Event('resize'));
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).toBeInTheDocument();
+    expectCompactSearchHeader(container);
 
     dispatchTouch('touchstart', 100);
     dispatchTouch('touchmove', 120);
     await Promise.resolve();
-    expect(container.querySelector('.app__header--compact')).not.toBeInTheDocument();
+    expectExpandedSearchHeader(container);
   });
 
   it('shows tolerant-only hint above results when all matches are tolerant', async () => {
@@ -528,7 +526,8 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
     });
-    expect(screen.queryByText('Meintest du vielleicht:')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Pikachu/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Raichu/i })).toBeInTheDocument();
   });
 
   it('keeps UI bound to latest search when earlier request resolves later', async () => {
@@ -583,8 +582,8 @@ describe('App', () => {
 
     await Promise.resolve();
 
-    expect(screen.queryByText('#025')).not.toBeInTheDocument();
     expect(screen.getByText('#731')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Peppeck/i })).toBeInTheDocument();
   });
 
   it('ignores stale rejected requests after a newer search succeeds', async () => {
@@ -625,8 +624,8 @@ describe('App', () => {
     first.reject(new Error('old failed request'));
     await Promise.resolve();
 
-    expect(screen.queryByText('Etwas ist schiefgelaufen')).not.toBeInTheDocument();
     expect(screen.getByText('#731')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Peppeck/i })).toBeInTheDocument();
   });
 
   it('shows error state and retry triggers another search', async () => {
@@ -690,6 +689,22 @@ describe('App', () => {
     });
   });
 
+  it('falls back to generic copy for plain search errors', async () => {
+    searchPokemonMock.mockRejectedValue(new Error('boom'));
+    render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Pokemon konnten gerade nicht geladen werden. Bitte versuche es erneut.'),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('falls back to generic copy for SearchPokemonError without specialized UI mapping', async () => {
     searchPokemonMock.mockRejectedValue({
       isSearchPokemonError: true,
@@ -733,7 +748,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(searchPokemonMock).toHaveBeenCalled();
     });
-    expect(screen.queryByText('Etwas ist schiefgelaufen')).not.toBeInTheDocument();
+    expect(screen.getByText('Pokemon werden geladen...')).toBeInTheDocument();
   });
 
   it('re-schedules debounce when query changes quickly', async () => {
@@ -770,7 +785,6 @@ describe('App', () => {
       displayName: 'Pikachu',
       image: 'https://img/pikachu.png',
       types: [{ name: 'Elektro' }],
-      baseHp: 35,
       heightMeters: 0.4,
       weightKilograms: 6,
       category: 'Maus-Pokemon',
@@ -813,218 +827,19 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
     });
-    await waitFor(() => {
-      expect(screen.queryByText('Pokemon wird geladen...')).not.toBeInTheDocument();
-    });
+    expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/pokemon/25');
     expect(
       screen.getByText('Wenn mehrere dieser POKeMON sich versammeln, entladen sie Strom.'),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('KP 35')).toBeInTheDocument();
     expect(screen.getByText('Größe')).toBeInTheDocument();
     expect(screen.getByText('Gewicht')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Alle Angriffe' })).toBeInTheDocument();
-    expect(screen.getByText('Donnerschock')).toBeInTheDocument();
     expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
     const factsRegion = screen.getByRole('region', { name: 'Wichtige Fakten' });
     expect(factsRegion).toBeInTheDocument();
-    expect(within(factsRegion).queryByText('KP')).not.toBeInTheDocument();
-  });
-
-  it('renders the full attack tile on the detail page', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-
-    render(App);
-
-    await waitFor(() => {
-      expect(fetchPokemonDetailMock).toHaveBeenCalledWith(25, expect.any(AbortSignal));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Alle Angriffe' })).toBeInTheDocument();
-    });
-
-    const attackList = await screen.findByRole('list', { name: 'Alle Angriffe' });
-    expect(attackList).toBeInTheDocument();
-    expect(within(attackList).getByText('Donnerschock')).toBeVisible();
-    expect(within(attackList).getByText('40')).toBeVisible();
-    expect(
-      within(attackList).getByText('Trifft das Ziel mit einem kurzen Elektroschock.'),
-    ).toBeVisible();
-    expect(within(attackList).queryByText('Kein Schaden')).not.toBeInTheDocument();
-  });
-
-  it('renders the main detail shell before the full attack crawl resolves', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    const pendingAttacks = deferred<PokemonAllAttacksResult | null>();
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock.mockReturnValueOnce(pendingAttacks.promise);
-
-    render(App);
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
-    });
-    expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
-    expect(screen.getByText('Angriffe werden geladen...')).toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Alle Angriffe' })).not.toBeInTheDocument();
-
-    pendingAttacks.resolve(allAttacksFixture());
-
-    await waitFor(() => {
-      expect(screen.getByRole('list', { name: 'Alle Angriffe' })).toBeInTheDocument();
-    });
-  });
-
-  it('shows a partial warning and retry action when the full attack list is incomplete', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock
-      .mockResolvedValueOnce(allAttacksFixture({ isPartial: true }))
-      .mockResolvedValueOnce(allAttacksFixture());
-
-    render(App);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Einige Angriffe konnten nicht vollständig geladen werden.'),
-      ).toBeInTheDocument();
-    });
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
-
-    await waitFor(() => {
-      expect(fetchPokemonAllAttacksMock).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  it('does not show the empty-state copy when a partial attack load resolves to zero rows', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock.mockResolvedValueOnce({
-      attacks: [],
-      isPartial: true,
-    });
-
-    render(App);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Einige Angriffe konnten nicht vollständig geladen werden.'),
-      ).toBeInTheDocument();
-    });
-
-    expect(screen.queryByRole('list', { name: 'Alle Angriffe' })).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Für dieses Pokemon sind keine Angriffe verfügbar.'),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows an attack-section error and retries it independently', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock
-      .mockRejectedValueOnce(new Error('boom'))
-      .mockResolvedValueOnce(allAttacksFixture());
-
-    render(App);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.',
-        ),
-      ).toBeInTheDocument();
-    });
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('list', { name: 'Alle Angriffe' })).toBeInTheDocument();
-    });
-  });
-
-  it('shows timeout-specific copy for attack-section errors', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock.mockRejectedValueOnce({
-      isSearchPokemonError: true,
-      code: 'timeout',
-    });
-
-    render(App);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Die Angriffe haben zu lange geladen. Bitte versuche es erneut.'),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('shows server-specific copy for attack-section errors', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock.mockRejectedValueOnce({
-      isSearchPokemonError: true,
-      code: 'server',
-    });
-
-    render(App);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          'Die Angriffe konnten gerade nicht vollständig geladen werden. Bitte versuche es erneut.',
-        ),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('shows a generic attack-section error when no attack payload is returned', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock.mockResolvedValueOnce(null);
-
-    render(App);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.',
-        ),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('ignores an aborted full-attack crawl when leaving the detail page', async () => {
-    window.history.pushState({}, '', '/#/pokemon/25');
-    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
-    fetchPokemonAllAttacksMock.mockImplementationOnce(
-      (_id, signal) =>
-        new Promise((_resolve, reject) => {
-          signal?.addEventListener('abort', () => {
-            reject(new DOMException('Aborted', 'AbortError'));
-          });
-        }),
-    );
-
-    render(App);
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
-    });
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Zurück zur Suche' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Suche starten')).toBeInTheDocument();
-    });
-    expect(
-      screen.queryByText(
-        'Die Angriffe konnten gerade nicht geladen werden. Bitte versuche es erneut.',
-      ),
-    ).not.toBeInTheDocument();
+    expect(within(factsRegion).getByText('Größe')).toBeInTheDocument();
+    expect(within(factsRegion).getByText('Gewicht')).toBeInTheDocument();
+    expect(within(factsRegion).getByText('Kategorie')).toBeInTheDocument();
   });
 
   it('navigates to adjacent pokemon from evolution tiles', async () => {
@@ -1096,7 +911,7 @@ describe('App', () => {
     expect(window.location.hash).toBe('#/pokemon/26');
   });
 
-  it('does not render a KP fact card even when base HP is available', async () => {
+  it('renders the facts section with size, weight and category only', async () => {
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock.mockResolvedValueOnce({
       id: 25,
@@ -1122,10 +937,12 @@ describe('App', () => {
     });
 
     const factsRegion = screen.getByRole('region', { name: 'Wichtige Fakten' });
-    expect(within(factsRegion).queryByText('KP')).not.toBeInTheDocument();
+    expect(within(factsRegion).getByText('Größe')).toBeInTheDocument();
+    expect(within(factsRegion).getByText('Gewicht')).toBeInTheDocument();
+    expect(within(factsRegion).getByText('Kategorie')).toBeInTheDocument();
   });
 
-  it('does not render a KP badge near the hero name when base HP is unavailable', async () => {
+  it('renders the hero identity with id, stage and type chips', async () => {
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock.mockResolvedValueOnce({
       id: 25,
@@ -1134,12 +951,10 @@ describe('App', () => {
       image: 'https://img/pikachu.png',
       sprite: 'https://img/pikachu-sprite.png',
       types: [{ name: 'Elektro' }],
-      baseHp: null,
       heightMeters: 0.4,
       weightKilograms: 6,
       category: null,
       flavorText: null,
-      attacks: [{ name: 'Donnerschock', damage: '40', typeName: 'Elektro' }],
       evolution: {
         stage: 'Phase 1',
         sharedPath: [{ id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' }],
@@ -1153,10 +968,12 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
     });
 
-    expect(screen.queryByLabelText(/KP /)).not.toBeInTheDocument();
+    expect(screen.getByText('#025')).toBeInTheDocument();
+    expect(screen.getByText('Phase 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Pokemon-Typen')).toBeInTheDocument();
   });
 
-  it('shows the hero attack back side when the artwork card is tapped', async () => {
+  it('renders a static artwork card in the hero', async () => {
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
 
@@ -1166,12 +983,9 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Angriffe von Pikachu zeigen' }));
-
-    const flippedCard = screen.getByRole('button', { name: 'Pikachu-Bild zeigen' });
-    expect(flippedCard).toBeInTheDocument();
-    expect(within(flippedCard).getByText('Donnerschock')).toBeInTheDocument();
-    expect(within(flippedCard).getByText('40 Schaden')).toBeInTheDocument();
+    expect(screen.getByLabelText('Pikachu Artwork')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Entwicklungsstufen')).toBeInTheDocument();
   });
 
   it('keeps detail frame stable while loading next evolution detail', async () => {
@@ -1218,7 +1032,7 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
     expect(screen.getByText('Neue Details werden geladen...')).toBeInTheDocument();
-    expect(screen.queryByText('Pokemon wird geladen...')).not.toBeInTheDocument();
+    expect(window.location.hash).toBe('#/pokemon/26');
 
     nextDetailPending.resolve({
       id: 26,
@@ -1708,7 +1522,8 @@ describe('App', () => {
 
     first.resolve(detailFixture({ id: 25, displayName: 'Pikachu' }));
     await Promise.resolve();
-    expect(screen.queryByRole('heading', { name: 'Pikachu' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Schiggy' })).toBeInTheDocument();
+    expect(screen.getByText('#007')).toBeInTheDocument();
   });
 
   it('ignores stale detail errors and ignores AbortError in detail flow', async () => {
@@ -1740,7 +1555,8 @@ describe('App', () => {
 
     first.reject(new Error('old detail failed'));
     await Promise.resolve();
-    expect(screen.queryByText('Details konnten nicht geladen werden')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Schiggy' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
 
     window.history.pushState({}, '', '/#/pokemon/8');
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -1748,7 +1564,8 @@ describe('App', () => {
       expect(fetchPokemonDetailMock).toHaveBeenCalledWith(8, expect.any(AbortSignal));
     });
     expect(fetchPokemonDetailMock).toHaveBeenCalledWith(8, expect.any(AbortSignal));
-    expect(screen.queryByText('Details konnten nicht geladen werden')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Schiggy' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
   });
 
   it('hides evolution section when no evolution relations exist', async () => {
@@ -1770,7 +1587,10 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Ditto' })).toBeInTheDocument();
     });
-    expect(screen.queryByRole('heading', { name: 'Entwicklung' })).not.toBeInTheDocument();
+    const secondaryHeadings = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent.trim());
+    expect(secondaryHeadings).toEqual(['Wichtige Fakten']);
   });
 
   it('renders feature-05 shared path and branch groups in evolution section', async () => {

@@ -301,9 +301,7 @@ Implementation guidance:
 - Use spacing and proportion to create emphasis before using stronger colors.
 - The optional description must read like a short supporting caption, not like the start of a long article.
 - When related Pokemon are opened from the evolution section, preserve the same hero frame, alignment, and approximate visual rhythm.
-- Secondary artwork interactions should use one clear affordance, not hidden gestures.
-- If the artwork flips, the whole artwork surface should remain the tap target and the affordance should stay anchored in a consistent corner on both sides.
-- Back-side content inside the artwork object must stay sparse enough to scan in one glance on iPad and mobile.
+- Keep the artwork object visually simple and focused on recognition first.
 
 ### State Surfaces
 
@@ -322,14 +320,12 @@ Global guidance for idle, loading, invalid, empty, not-found, and error states:
 - Sticky search transitions should feel calm and mechanically stable.
 - In-detail navigation should preserve the detail frame and avoid a full-layout reset sensation.
 - Respect `prefers-reduced-motion` with non-essential motion removed.
-- Card-flip motion inside the detail hero can be more noticeable than generic press feedback, but should still feel calm and controlled.
 
 Implementation guidance:
 
 - Prefer 120-180ms transitions for simple emphasis changes.
 - Prefer opacity/transform changes over layout-shifting animations.
 - Do not animate large blocks vertically in a way that changes reading position.
-- Reduced-motion users should get an almost direct state change instead of a full 3D-feeling rotation.
 
 ### Fact Card
 

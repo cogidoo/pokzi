@@ -25,7 +25,7 @@ describe('EvolutionSummary', () => {
     expect(screen.getByRole('heading', { name: 'Phase 1' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Phase 2' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zu Pichu wechseln' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Zu Pikachu wechseln' })).not.toBeInTheDocument();
+    expect(screen.getByText('Pikachu').closest('article')).toHaveAttribute('aria-current', 'true');
     expect(screen.getByText('Keine Phase-2-Entwicklung')).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Zu Pichu wechseln' }));
@@ -89,8 +89,11 @@ describe('EvolutionSummary', () => {
       onSelect,
     });
 
-    expect(screen.queryByText('Von Aquana')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Zu Aquana wechseln' })).not.toBeInTheDocument();
+    expect(screen.getByText('Feelinara').closest('article')).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Zu Glaziola wechseln' })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Zu Glaziola wechseln' }));
     expect(onSelect).toHaveBeenCalledWith(471);
   });
@@ -139,8 +142,8 @@ describe('EvolutionSummary', () => {
       onSelect: vi.fn(),
     });
 
-    expect(screen.queryByText('Von Pikachu')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Zu Raichu wechseln' })).not.toBeInTheDocument();
+    expect(screen.getByText('Raichu').closest('article')).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('heading', { name: 'Phase 2' })).toBeInTheDocument();
   });
 
   it('uses branch-group first items as phase-2 options when shared path has two entries', () => {
@@ -170,6 +173,32 @@ describe('EvolutionSummary', () => {
     expect(screen.getByRole('button', { name: 'Zu Ampharos wechseln' })).toBeInTheDocument();
   });
 
+  it('keeps phase-2 groups unlabeled when only one grouped origin is visible', () => {
+    render(EvolutionSummary, {
+      evolution: {
+        stage: 'Phase 1',
+        sharedPath: [
+          { id: 172, displayName: 'Pichu', image: null },
+          { id: 25, displayName: 'Pikachu', image: null },
+        ],
+        branchGroups: [
+          {
+            originId: 25,
+            items: [
+              { id: 26, displayName: 'Raichu', image: null },
+              { id: 1726, displayName: 'Mega-Raichu', image: null },
+            ],
+          },
+        ],
+      },
+      currentPokemonId: 25,
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.getByRole('button', { name: 'Zu Raichu wechseln' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /wechseln$/ })).toHaveLength(2);
+  });
+
   it('ignores branch groups that do not contain a phase-2 item', () => {
     render(EvolutionSummary, {
       evolution: {
@@ -193,7 +222,7 @@ describe('EvolutionSummary', () => {
       onSelect: vi.fn(),
     });
 
-    expect(screen.queryByRole('button', { name: 'Zu Aquana wechseln' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zu Glaziola wechseln' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /wechseln$/ })).toHaveLength(1);
   });
 });

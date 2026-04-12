@@ -132,6 +132,44 @@ describe('createGermanNameSearchIndex', () => {
     expect(fetchGermanIndexItem).toHaveBeenCalledTimes(1);
   });
 
+  it('stops scanning after an exact match plus enough partial matches fill the limit', async () => {
+    const fetchSpeciesIndex = vi.fn().mockResolvedValue(species([1, 2, 3, 4, 5, 6]));
+    const fetchGermanIndexItem = vi.fn((item: BaseSpeciesIndexItem) => {
+      const namesById: Record<number, string> = {
+        1: 'Pika',
+        2: 'Pikachu',
+        3: 'Pikadings',
+        4: 'Pikaball',
+        5: 'Glumanda',
+        6: 'Schiggy',
+      };
+
+      return Promise.resolve(entry(item.id, namesById[item.id]));
+    });
+
+    const index = createGermanNameSearchIndex(
+      {
+        fetchSpeciesIndex,
+        fetchGermanIndexItem,
+      },
+      {
+        searchResultLimit: 3,
+        indexRequestConcurrency: 2,
+        indexScanBatchSize: 2,
+        maxBatchesAfterExactMatch: 5,
+      },
+    );
+
+    const results = await index.findGermanMatches('pika');
+
+    expect(results.map((result) => result.item.germanName)).toEqual([
+      'Pika',
+      'Pikaball',
+      'Pikachu',
+    ]);
+    expect(fetchGermanIndexItem).toHaveBeenCalledTimes(4);
+  });
+
   it('skips entries without german localization', async () => {
     const index = createGermanNameSearchIndex(
       {
@@ -147,6 +185,30 @@ describe('createGermanNameSearchIndex', () => {
     );
 
     await expect(index.findGermanMatches('pik')).resolves.toEqual([]);
+  });
+
+  it('deduplicates repeated partial matches for the same pokemon id', async () => {
+    const index = createGermanNameSearchIndex(
+      {
+        fetchSpeciesIndex: () =>
+          Promise.resolve([
+            { id: 25, pokemonName: 'pikachu-a' },
+            { id: 25, pokemonName: 'pikachu-b' },
+          ]),
+        fetchGermanIndexItem: () => Promise.resolve(entry(25, 'Pikachu')),
+      },
+      {
+        searchResultLimit: 20,
+        indexRequestConcurrency: 4,
+        indexScanBatchSize: 20,
+        maxBatchesAfterExactMatch: 2,
+      },
+    );
+
+    const results = await index.findGermanMatches('pika');
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.item.germanName).toBe('Pikachu');
   });
 
   it('skips tolerant candidates when length gap exceeds max distance', async () => {

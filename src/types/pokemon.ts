@@ -30,8 +30,6 @@ export interface PokemonEvolutionTile {
   id: number;
   displayName: string;
   image: string | null;
-  /** Base HP from official API stats (`hp`), if available. */
-  baseHp?: number;
   types?: PokemonType[];
 }
 
@@ -53,33 +51,6 @@ export interface PokemonEvolutionSummary {
 }
 
 /**
- * Curated official attack shown on the detail hero back side.
- */
-export interface PokemonAttack {
-  name: string;
-  damage: string;
-  typeName: string;
-}
-
-/**
- * One official move shown in the complete attack list on the detail page.
- */
-export interface PokemonDetailedAttack {
-  name: string;
-  description: string;
-  damage: string | null;
-  typeName: string;
-}
-
-/**
- * Result contract for the lazily loaded full attack section.
- */
-export interface PokemonAllAttacksResult {
-  attacks: PokemonDetailedAttack[];
-  isPartial: boolean;
-}
-
-/**
  * Shape of a Pokemon detail payload rendered in the detail view.
  */
 export interface PokemonDetail {
@@ -89,12 +60,9 @@ export interface PokemonDetail {
   image: string | null;
   sprite?: string | null;
   types: PokemonType[];
-  /** Base HP from official API stats (`hp`), if available. */
-  baseHp?: number | null;
   heightMeters: number;
   weightKilograms: number;
   category: string | null;
   flavorText: string | null;
-  attacks?: PokemonAttack[];
   evolution: PokemonEvolutionSummary;
 }
