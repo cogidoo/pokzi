@@ -1,6 +1,7 @@
 <script lang="ts">
   import SearchBar from './components/SearchBar.svelte';
   import EvolutionSummary from './components/EvolutionSummary.svelte';
+  import PokemonCardsGallery from './components/PokemonCardsGallery.svelte';
   import PokemonArtworkCard from './components/PokemonArtworkCard.svelte';
   import ResultCard from './components/ResultCard.svelte';
   import StatusState from './components/StatusState.svelte';
@@ -13,7 +14,9 @@
     type DetailHistoryState,
   } from './features/navigation/hashRouter';
   import { SearchController, type SearchUiState } from './features/search/searchController';
+  import { fetchPokemonCards } from './services/pokemonCardsApi';
   import { fetchPokemonDetail, isSearchPokemonError, searchPokemon } from './services/pokemonApi';
+  import type { PokemonCard } from './types/pokemonCards';
   import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
 
   /*
@@ -25,6 +28,10 @@
    * UI states for the detail view.
    */
   type DetailUiState = 'loading' | 'success' | 'empty' | 'error';
+  /**
+   * Local UI states for the optional cards section inside the detail view.
+   */
+  type DetailCardsUiState = 'idle' | 'loading' | 'success' | 'empty' | 'error';
   let query = $state('');
   let uiState = $state<SearchUiState>('idle');
   let errorMessage = $state('');
@@ -34,6 +41,9 @@
   let detailUiState = $state<DetailUiState>('loading');
   let detailErrorMessage = $state('');
   let detail = $state<PokemonDetail | null>(null);
+  let detailCardsUiState = $state<DetailCardsUiState>('idle');
+  let detailCardsErrorMessage = $state('');
+  let detailCards = $state<PokemonCard[]>([]);
   let openedFromResults = $state(false);
   let detailTransitioning = $state(false);
   let resultsScrolled = $state(false);
@@ -41,7 +51,9 @@
   let lastTouchY = 0;
 
   let activeDetailAbort: AbortController | null = null;
+  let activeDetailCardsAbort: AbortController | null = null;
   let nextDetailRequestToken = 0;
+  let nextDetailCardsRequestToken = 0;
   let lastDetailRouteId: number | null = null;
 
   const DEBOUNCE_MS = 280;
@@ -108,6 +120,16 @@
   }
 
   /**
+   * Aborts the currently active detail cards request.
+   */
+  function cancelDetailCardsInFlight() {
+    if (activeDetailCardsAbort) {
+      activeDetailCardsAbort.abort();
+      activeDetailCardsAbort = null;
+    }
+  }
+
+  /**
    * Maps technical errors to user-facing German messages.
    *
    * @param error - Error thrown by the search flow.
@@ -145,6 +167,63 @@
     }
 
     return 'Die Pokemon-Details konnten gerade nicht geladen werden. Bitte versuche es erneut.';
+  }
+
+  /**
+   * Maps cards request errors to user-facing German messages.
+   *
+   * @param error - Error thrown by the cards flow.
+   * @returns Message for the local cards section.
+   */
+  function toDetailCardsErrorMessage(error: unknown): string {
+    if (isSearchPokemonError(error)) {
+      if (error.code === 'timeout') {
+        return 'Die Karten haben zu lange geladen. Bitte versuche es erneut.';
+      }
+
+      if (error.code === 'server') {
+        return 'Die Kartenquelle antwortet gerade nicht richtig. Bitte versuche es erneut.';
+      }
+    }
+
+    return 'Die Karten konnten gerade nicht geladen werden.';
+  }
+
+  /**
+   * Starts loading localized TCG cards for the active detail Pokemon.
+   *
+   * @param pokemon - Current Pokemon detail payload.
+   */
+  async function loadDetailCards(pokemon: PokemonDetail) {
+    const requestToken = ++nextDetailCardsRequestToken;
+    cancelDetailCardsInFlight();
+
+    const requestAbort = new AbortController();
+    activeDetailCardsAbort = requestAbort;
+    detailCardsUiState = 'loading';
+    detailCardsErrorMessage = '';
+
+    try {
+      const cards = await fetchPokemonCards(pokemon.id, pokemon.displayName, requestAbort.signal);
+      if (requestToken !== nextDetailCardsRequestToken) {
+        return;
+      }
+
+      detailCards = cards;
+      detailCardsUiState = cards.length > 0 ? 'success' : 'empty';
+    } catch (error) {
+      if (requestToken !== nextDetailCardsRequestToken) {
+        return;
+      }
+
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+
+      detailCards = [];
+      detailCardsErrorMessage = toDetailCardsErrorMessage(error);
+      detailCardsUiState = 'error';
+    }
   }
 
   const searchController = new SearchController(
@@ -364,12 +443,16 @@
 
       if (!found) {
         detail = null;
+        detailCards = [];
+        detailCardsErrorMessage = '';
+        detailCardsUiState = 'idle';
         detailUiState = 'empty';
         return;
       }
 
       detail = found;
       detailUiState = 'success';
+      void loadDetailCards(found);
     } catch (error) {
       if (requestToken !== nextDetailRequestToken) {
         return;
@@ -385,7 +468,6 @@
 
       if (keepCurrentFrame) {
         detailErrorMessage = message;
-        /* v8 ignore next -- keep-current-frame fallback only runs with an already visible detail */
         if (detail) {
           const historyState = openedFromResults
             ? ({ source: 'results' } satisfies DetailHistoryState)
@@ -398,6 +480,9 @@
       }
 
       detail = null;
+      detailCards = [];
+      detailCardsErrorMessage = '';
+      detailCardsUiState = 'idle';
       detailErrorMessage = message;
       detailUiState = 'error';
     }
@@ -407,7 +492,6 @@
    * Retries loading the active detail route.
    */
   function retryDetail() {
-    /* v8 ignore next -- defensive guard for stale UI callbacks */
     if (route.kind !== 'detail') {
       return;
     }
@@ -421,6 +505,7 @@
    */
   function goBackToSearch() {
     cancelDetailInFlight();
+    cancelDetailCardsInFlight();
 
     if (openedFromResults && window.history.length > 1) {
       window.history.back();
@@ -429,7 +514,6 @@
 
     window.history.pushState({}, '', searchUrl());
     route = { kind: 'search' };
-    /* v8 ignore next -- direct deep-link fallback keeps search state clean */
     if (!openedFromResults) {
       query = '';
       results = [];
@@ -464,6 +548,11 @@
   $effect(() => {
     if (route.kind !== 'detail') {
       lastDetailRouteId = null;
+      detailCards = [];
+      detailCardsErrorMessage = '';
+      detailCardsUiState = 'idle';
+      cancelDetailInFlight();
+      cancelDetailCardsInFlight();
       return;
     }
 
@@ -473,9 +562,6 @@
 
     lastDetailRouteId = route.id;
     void loadDetail(route.id);
-    return () => {
-      cancelDetailInFlight();
-    };
   });
 </script>
 
@@ -600,43 +686,49 @@
           message="Zu dieser Nummer konnten keine Details geladen werden."
         />
       {:else if detail}
+        {@const currentDetail = detail}
         <article class="detail__content">
           <section class="detail__hero">
             <div class="detail__image-wrap">
-              {#key detail.id}
-                <PokemonArtworkCard displayName={detail.displayName} image={detail.image} />
+              {#key currentDetail.id}
+                <PokemonArtworkCard
+                  displayName={currentDetail.displayName}
+                  image={currentDetail.image}
+                />
               {/key}
             </div>
 
             <div class="detail__hero-meta">
               <div class="detail__identity">
-                <p class="detail__id">{formatId(detail.id)}</p>
+                <p class="detail__id">{formatId(currentDetail.id)}</p>
                 <div class="detail__name-row">
-                  <h1 class="detail__name">{detail.displayName}</h1>
+                  <h1 class="detail__name">{currentDetail.displayName}</h1>
                 </div>
               </div>
               <div class="detail__hero-support">
                 <p class="meta-chip meta-chip--stage meta-chip--detail">
                   <span class="meta-chip__label">Stufe</span>
-                  <span class="meta-chip__value">{detail.evolution.stage}</span>
+                  <span class="meta-chip__value">{currentDetail.evolution.stage}</span>
                 </p>
                 <div class="card__types" aria-label="Pokemon-Typen">
-                  {#each detail.types as type (type.name)}
+                  {#each currentDetail.types as type (type.name)}
                     <span class="type-chip">{type.name}</span>
                   {/each}
                 </div>
               </div>
-              <p class={`detail__hero-text ${detail.flavorText ? '' : 'detail__hero-text--empty'}`}>
-                {detail.flavorText ?? HERO_TEXT_PLACEHOLDER}
+              <p
+                class={`detail__hero-text ${currentDetail.flavorText ? '' : 'detail__hero-text--empty'}`}
+              >
+                {currentDetail.flavorText ?? HERO_TEXT_PLACEHOLDER}
               </p>
             </div>
           </section>
 
-          {#if hasEvolutionRelations(detail)}
+          {#if hasEvolutionRelations(currentDetail)}
             <section class="detail__section detail__section--evolution" aria-label="Entwicklung">
               <EvolutionSummary
-                evolution={detail.evolution}
-                currentPokemonId={detail.id}
+                evolution={currentDetail.evolution}
+                currentPokemonId={currentDetail.id}
                 onSelect={openEvolutionDetail}
               />
             </section>
@@ -660,20 +752,36 @@
             <div class="detail__facts">
               <article class="detail-fact">
                 <p class="detail-fact__label">Größe</p>
-                <p class="detail-fact__value">{formatMetric(detail.heightMeters)} m</p>
+                <p class="detail-fact__value">{formatMetric(currentDetail.heightMeters)} m</p>
               </article>
               <article class="detail-fact">
                 <p class="detail-fact__label">Gewicht</p>
-                <p class="detail-fact__value">{formatMetric(detail.weightKilograms)} kg</p>
+                <p class="detail-fact__value">{formatMetric(currentDetail.weightKilograms)} kg</p>
               </article>
-              {#if detail.category}
+              {#if currentDetail.category}
                 <article class="detail-fact">
                   <p class="detail-fact__label">Kategorie</p>
-                  <p class="detail-fact__value">{detail.category}</p>
+                  <p class="detail-fact__value">{currentDetail.category}</p>
                 </article>
               {/if}
             </div>
           </section>
+
+          {#if detailCardsUiState !== 'idle'}
+            <PokemonCardsGallery
+              pokemonName={currentDetail.displayName}
+              galleryState={detailCardsUiState}
+              cards={detailCards.map((card) => ({
+                id: card.id,
+                name: card.name,
+                setName: card.set.name,
+                number: card.localId,
+                imageUrl: card.image,
+              }))}
+              errorMessage={detailCardsErrorMessage}
+              onRetry={() => void loadDetailCards(currentDetail)}
+            />
+          {/if}
         </article>
       {/if}
     </section>

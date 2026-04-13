@@ -1,11 +1,18 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
+import type { PokemonCard } from './types/pokemonCards';
 
 type SearchPokemonFn = (query: string, signal?: AbortSignal) => Promise<PokemonSearchResult[]>;
 type FetchPokemonDetailFn = (id: number, signal?: AbortSignal) => Promise<PokemonDetail | null>;
+type FetchPokemonCardsFn = (
+  dexId: number,
+  germanName: string,
+  signal?: AbortSignal,
+) => Promise<PokemonCard[]>;
 const searchPokemonMock = vi.fn<SearchPokemonFn>();
 const fetchPokemonDetailMock = vi.fn<FetchPokemonDetailFn>();
+const fetchPokemonCardsMock = vi.fn<FetchPokemonCardsFn>();
 
 vi.mock('./services/pokemonApi', () => ({
   searchPokemon: (query: string, signal?: AbortSignal) => searchPokemonMock(query, signal),
@@ -13,8 +20,13 @@ vi.mock('./services/pokemonApi', () => ({
   isSearchPokemonError: (error: unknown) =>
     typeof error === 'object' &&
     error !== null &&
-    'isSearchPokemonError' in error &&
-    (error as { isSearchPokemonError?: boolean }).isSearchPokemonError === true,
+      'isSearchPokemonError' in error &&
+      (error as { isSearchPokemonError?: boolean }).isSearchPokemonError === true,
+}));
+
+vi.mock('./services/pokemonCardsApi', () => ({
+  fetchPokemonCards: (dexId: number, germanName: string, signal?: AbortSignal) =>
+    fetchPokemonCardsMock(dexId, germanName, signal),
 }));
 
 import App from './App.svelte';
@@ -115,6 +127,24 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
   };
 }
 
+function cardFixture(overrides: Partial<PokemonCard> = {}): PokemonCard {
+  return {
+    id: 'sv03.5-004',
+    name: 'Glumanda',
+    localId: '004',
+    image: 'https://img/card-glumanda.png',
+    dexIds: [4],
+    set: {
+      id: 'sv03.5',
+      name: '151',
+      logo: 'https://img/set-logo.png',
+    },
+    category: 'Pokémon',
+    rarity: 'Häufig',
+    ...overrides,
+  };
+}
+
 /**
  * Asserts that the search header is rendered in its expanded state.
  *
@@ -156,6 +186,8 @@ describe('App', () => {
     vi.useFakeTimers();
     searchPokemonMock.mockReset();
     fetchPokemonDetailMock.mockReset();
+    fetchPokemonCardsMock.mockReset();
+    fetchPokemonCardsMock.mockResolvedValue([]);
     window.history.pushState({}, '', '/');
     setScrollY(0);
     setPageHeights(1600, 800);
@@ -809,6 +841,8 @@ describe('App', () => {
       },
     });
 
+    fetchPokemonCardsMock.mockResolvedValueOnce([cardFixture({ name: 'Pikachu', dexIds: [25] })]);
+
     render(App);
 
     await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
@@ -827,7 +861,12 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
     });
-    expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
+    });
     expect(window.location.hash).toBe('#/pokemon/25');
     expect(
       screen.getByText('Wenn mehrere dieser POKeMON sich versammeln, entladen sie Strom.'),
@@ -840,6 +879,87 @@ describe('App', () => {
     expect(within(factsRegion).getByText('Größe')).toBeInTheDocument();
     expect(within(factsRegion).getByText('Gewicht')).toBeInTheDocument();
     expect(within(factsRegion).getByText('Kategorie')).toBeInTheDocument();
+    expect(fetchPokemonCardsMock).toHaveBeenCalledWith(25, 'Pikachu', expect.any(AbortSignal));
+    expect(screen.getByRole('heading', { level: 2, name: 'Karten' })).toBeInTheDocument();
+  });
+
+  it('shows a local cards empty state without affecting the detail page', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockResolvedValueOnce([]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
+    });
+    expect(screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
+  });
+
+  it('keeps cards failure local and retries only the cards section', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock
+      .mockRejectedValueOnce({
+        isSearchPokemonError: true,
+        code: 'server',
+      })
+      .mockResolvedValueOnce([cardFixture({ name: 'Pikachu', dexIds: [25] })]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Wichtige Fakten' })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Die Kartenquelle antwortet gerade nicht richtig. Bitte versuche es erneut.'),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+
+    await waitFor(() => {
+      expect(fetchPokemonCardsMock).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(screen.getByText('151')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('heading', { level: 2, name: 'Karten' })).toBeInTheDocument();
+  });
+
+  it('maps timeout and generic cards errors to local section copy', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValue(detailFixture());
+    fetchPokemonCardsMock
+      .mockRejectedValueOnce({
+        isSearchPokemonError: true,
+        code: 'timeout',
+      })
+      .mockRejectedValueOnce(new Error('cards boom'));
+
+    const { unmount } = render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Die Karten haben zu lange geladen. Bitte versuche es erneut.'),
+      ).toBeInTheDocument();
+    });
+
+    unmount();
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByText('Die Karten konnten gerade nicht geladen werden.')).toBeInTheDocument();
+    });
   });
 
   it('navigates to adjacent pokemon from evolution tiles', async () => {
@@ -909,6 +1029,100 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Raichu' })).toBeInTheDocument();
     });
     expect(window.location.hash).toBe('#/pokemon/26');
+  });
+
+  it('keeps results-origin history state when switching to another evolution detail', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    fetchPokemonDetailMock
+      .mockResolvedValueOnce(detailFixture())
+      .mockResolvedValueOnce(
+        detailFixture({
+          id: 26,
+          name: 'raichu',
+          displayName: 'Raichu',
+          image: 'https://img/raichu.png',
+          evolution: {
+            stage: 'Phase 2',
+            sharedPath: [
+              { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+              { id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' },
+              { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+            ],
+            branchGroups: [],
+          },
+        }),
+      );
+
+    render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Pikachu/i })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: /Pikachu/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Zu Raichu wechseln' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Zu Raichu wechseln' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1, name: 'Raichu' })).toBeInTheDocument();
+    });
+    expect(window.history.state).toEqual({ source: 'results' });
+  });
+
+  it('keeps results-origin history state when related detail loading fails', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    fetchPokemonDetailMock
+      .mockResolvedValueOnce(detailFixture())
+      .mockRejectedValueOnce(new Error('related detail boom'));
+
+    render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Pikachu/i })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: /Pikachu/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Zu Raichu wechseln' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Zu Raichu wechseln' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Die Pokemon-Details konnten gerade nicht geladen werden. Bitte versuche es erneut.')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
+    expect(window.history.state).toEqual({ source: 'results' });
+    expect(window.location.hash).toBe('#/pokemon/25');
   });
 
   it('renders the facts section with size, weight and category only', async () => {
@@ -1590,7 +1804,7 @@ describe('App', () => {
     const secondaryHeadings = screen
       .getAllByRole('heading', { level: 2 })
       .map((heading) => heading.textContent.trim());
-    expect(secondaryHeadings).toEqual(['Wichtige Fakten']);
+    expect(secondaryHeadings).toEqual(['Wichtige Fakten', 'Karten']);
   });
 
   it('renders feature-05 shared path and branch groups in evolution section', async () => {

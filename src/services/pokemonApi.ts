@@ -206,7 +206,6 @@ async function fetchPokemonData(id: number, signal?: AbortSignal): Promise<Pokem
     pokemonResponseCache.set(id, data);
     return data;
   } catch (error) {
-    /* v8 ignore next -- 404 remains a non-fatal null result for detail helpers */
     if (isHttpStatusError(error, 404)) {
       return null;
     }

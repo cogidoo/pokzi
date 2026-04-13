@@ -26,6 +26,7 @@ The detail page turns a search result into a simple learning moment without forc
 - Dedicated detail page for one selected Pokemon
 - Prominent hero area with artwork, German name, ID, and German type chips
 - Curated key facts section
+- Optional TCG cards section for German-language Pokemon cards when localized card data is available
 - Evolution summary with stage-based visual navigation across the visible chain path
 - Back action to the preserved search/results context
 - Loading, error, and retry states for detail fetch
@@ -38,7 +39,7 @@ The detail page turns a search result into a simple learning moment without forc
 3. The app navigates to the Pokemon detail view.
 4. The app shows a loading shell or skeleton immediately.
 5. Detail data resolves and the page renders the content.
-6. The user first sees the hero with the short description, then the evolution summary, and then the key facts.
+6. The user first sees the hero with the short description, then the evolution summary, then the key facts, and finally an optional cards section when card data is available.
 7. The user uses the back action and returns to the preserved search/results state.
 
 ## Navigation Rules
@@ -55,6 +56,7 @@ The detail page turns a search result into a simple learning moment without forc
 1. Hero summary
 2. Evolution summary
 3. Key facts
+4. Optional cards gallery
 
 ## Hero Summary
 
@@ -84,6 +86,26 @@ Presentation rules:
 - Avoid competitive or technical terminology when not necessary.
 - Show facts as large cards or tiles, not as a dense table.
 
+## Cards Gallery
+
+- Place the cards section after key facts so the core Pokemon learning flow remains intact.
+- Show the section only when German-language card data is available for the current Pokemon.
+- Prefer German cards first when multiple localized card variants exist.
+- Present cards as a horizontal, touch-friendly gallery with snap behavior rather than a dense list or table.
+- Support opening one card into a focused fullscreen viewer without leaving the Pokemon detail page.
+- Keep each card item visually focused on the real card artwork.
+- Show only lightweight supporting metadata per card, such as localized card name, set name, and card number.
+- Keep the section exploratory and collectible in tone, but visually subordinate to the hero and evolution summary.
+
+Presentation rules:
+
+- Do not introduce filters, tabs, or sort controls in the initial detail experience.
+- Do not let card chrome or pagination UI compete with the Pokemon hero.
+- Keep the section valuable even when only one or two cards are available.
+- Avoid card layouts that require horizontal page scrolling outside the section itself.
+- Prefer cards with a usable image before cards without one.
+- Cards without images must still remain understandable and accessible instead of disappearing silently.
+
 ## Evolution Summary
 
 - Show the current evolution stage label.
@@ -100,12 +122,14 @@ Presentation rules:
 - Show a skeleton layout matching hero and fact cards.
 - Keep the back action visible.
 - When the user switches between related Pokemon from within the detail page, keep the overall detail frame visually stable instead of replacing the whole page with a noticeably different-height loading shell.
+- If the cards section is still loading after the Pokemon detail succeeds, show a local cards-section loading state instead of blocking the full page.
 
 ### Error
 
 - Show a friendly German explanation.
 - Keep a clear retry action.
 - Keep a clear route back to the search/results screen.
+- If card loading fails, contain the failure inside the cards section and keep the rest of the detail page usable.
 
 ### Not Found
 
@@ -117,6 +141,8 @@ Presentation rules:
 - Hide unavailable optional sub-sections instead of showing raw placeholders.
 - Keep the screen stable when one optional field is unavailable.
 - Missing optional hero description must not cause the core hero identity block to noticeably jump between related Pokemon.
+- If no German cards are available, replace the gallery with a quiet local empty state or hide the section according to the implementation choice documented for the feature.
+- If a card entry has no image, keep the card available with a calm fallback treatment and place it after image-backed cards.
 
 ## UX/UI Handoff
 
@@ -126,6 +152,7 @@ Presentation rules:
 - The hero is the strongest section on the page.
 - Supporting description appears inside the hero when available.
 - Evolution appears before key facts.
+- Cards appear after key facts when available.
 - Each section should feel short enough to scan independently.
 
 Implementation notes:
@@ -133,6 +160,7 @@ Implementation notes:
 - The page should feel like entering one focused Pokemon mode, not like opening another generic stacked-card screen.
 - The back action should remain clear but visually secondary to the hero once the content loads.
 - The first viewport on iPad should prioritize back action, hero, and the beginning of evolution content before deeper facts.
+- The cards section should feel like a discovery bonus lower in the reading flow, not like a second primary mode.
 
 ### Hero Visual Hierarchy
 
@@ -165,6 +193,25 @@ Implementation notes:
 - Each fact card should expose one label and one strong value without secondary clutter.
 - Fact cards should support the hero rather than rival it for attention.
 
+### Cards Gallery Composition
+
+- The cards section should read as a short gallery, not as a catalog-management surface.
+- Real card imagery is the primary visual signal inside the section.
+- On narrow widths, show one dominant card with a clear hint that more cards can be explored horizontally.
+- On tablet widths, allow multiple cards to be visible at once while preserving a strong leading item.
+- Keep motion subtle and allow reduced-motion users to explore the section without animated emphasis.
+- Tapping a card should open a fullscreen card viewer layered over the detail page instead of navigating away.
+
+Implementation notes:
+
+- Prefer horizontal scroll with snap points over a heavy carousel framework.
+- Any previous/next controls must remain touch-safe, keyboard-reachable, and visually secondary to the card artwork.
+- Avoid pagination dots unless they materially improve orientation without adding noise.
+- Keep per-card metadata short enough that card images remain the strongest repeated pattern.
+- Inline gallery images should load lazily so the section can appear before every card image has downloaded.
+- In the fullscreen viewer, support next/previous navigation with both explicit controls and horizontal swipe gestures on touch devices.
+- A card without an image should still open in the fullscreen viewer with a strong metadata fallback rather than a broken zoom state.
+
 ### Optional Content Behavior
 
 - Optional hero description and optional sections such as category disappear cleanly when data is missing.
@@ -184,11 +231,14 @@ Implementation notes:
 - Detail hero clearly reads as the page focus.
 - Artwork, German name, `#ID`, type chips, optional stage badge, and optional short description form one cohesive identity block.
 - Key facts are rendered as cards and remain easy to scan.
+- When present, the cards section is visually distinct from facts and reads as a lightweight gallery of real cards.
+- The cards section opens a focused fullscreen card viewer that feels connected to the current detail page rather than like a route change.
 - Optional sections disappear cleanly when data is unavailable.
 - The detail page remains readable and touch-friendly on phone and iPad widths defined in `DESIGN_BRIEF.md`.
 - Switching between related Pokemon from inside the detail page does not cause a full-page loading jump that breaks the user's spatial orientation.
 - The hero identity block remains visually anchored even when the optional short description changes in length or disappears.
 - The detail page feels more expressive and focused than the search/results screen without introducing extra features or denser navigation.
+- The cards gallery remains clearly secondary to the hero and does not push the detail page toward a crowded collector dashboard.
 
 ## Acceptance Criteria
 
@@ -200,7 +250,14 @@ Implementation notes:
 - When available, the short German flavor text appears inside the hero instead of as a separate later section.
 - The evolution summary appears before the key facts section.
 - The page exposes an evolution summary with the current stage and visual navigation for all visible chain items when available.
+- When German card data is available, the page shows a cards gallery after the key facts section.
+- The cards gallery presents localized card artwork and short supporting metadata in a horizontal touch-friendly format.
+- Tapping a card opens a fullscreen viewer with clear close, previous, and next controls.
+- The fullscreen viewer supports touch-friendly horizontal swipe navigation on iPad widths.
+- Cards without a usable image appear after image-backed cards in the gallery and still expose a readable fallback in both gallery and fullscreen states.
+- A cards-section loading or error state does not replace the full detail page state.
 - The back action remains visible in loading, error, and not-found states.
 - Loading, error, retry, not-found, and missing-data behavior are all present and distinguishable.
 - Optional hero description and category are hidden completely when their required data is unavailable or not suitable for child-friendly display.
+- The cards section hides cleanly or shows a calm local empty state when no suitable German cards are available for the current Pokemon.
 - In-detail navigation between related Pokemon keeps the user inside one stable detail context without a jarring layout reset.
