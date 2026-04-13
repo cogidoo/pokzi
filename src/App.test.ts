@@ -20,8 +20,8 @@ vi.mock('./services/pokemonApi', () => ({
   isSearchPokemonError: (error: unknown) =>
     typeof error === 'object' &&
     error !== null &&
-      'isSearchPokemonError' in error &&
-      (error as { isSearchPokemonError?: boolean }).isSearchPokemonError === true,
+    'isSearchPokemonError' in error &&
+    (error as { isSearchPokemonError?: boolean }).isSearchPokemonError === true,
 }));
 
 vi.mock('./services/pokemonCardsApi', () => ({
@@ -897,7 +897,9 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
     });
-    expect(screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
   });
 
@@ -919,7 +921,9 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Die Kartenquelle antwortet gerade nicht richtig. Bitte versuche es erneut.'),
+        screen.getByText(
+          'Die Kartenquelle antwortet gerade nicht richtig. Bitte versuche es erneut.',
+        ),
       ).toBeInTheDocument();
     });
     expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
@@ -958,7 +962,9 @@ describe('App', () => {
     render(App);
 
     await waitFor(() => {
-      expect(screen.getByText('Die Karten konnten gerade nicht geladen werden.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Die Karten konnten gerade nicht geladen werden.'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -1042,25 +1048,23 @@ describe('App', () => {
         evolutionStage: 'Phase 1',
       },
     ]);
-    fetchPokemonDetailMock
-      .mockResolvedValueOnce(detailFixture())
-      .mockResolvedValueOnce(
-        detailFixture({
-          id: 26,
-          name: 'raichu',
-          displayName: 'Raichu',
-          image: 'https://img/raichu.png',
-          evolution: {
-            stage: 'Phase 2',
-            sharedPath: [
-              { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
-              { id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' },
-              { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
-            ],
-            branchGroups: [],
-          },
-        }),
-      );
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture()).mockResolvedValueOnce(
+      detailFixture({
+        id: 26,
+        name: 'raichu',
+        displayName: 'Raichu',
+        image: 'https://img/raichu.png',
+        evolution: {
+          stage: 'Phase 2',
+          sharedPath: [
+            { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+            { id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' },
+            { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+          ],
+          branchGroups: [],
+        },
+      }),
+    );
 
     render(App);
 
@@ -1118,7 +1122,11 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Zu Raichu wechseln' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Die Pokemon-Details konnten gerade nicht geladen werden. Bitte versuche es erneut.')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Die Pokemon-Details konnten gerade nicht geladen werden. Bitte versuche es erneut.',
+        ),
+      ).toBeInTheDocument();
     });
     expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
     expect(window.history.state).toEqual({ source: 'results' });

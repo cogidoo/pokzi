@@ -111,7 +111,9 @@
    * @returns The first client X coordinate when available.
    */
   function getTouchClientX(
-    touchList: TouchList | { 0?: { clientX: number }; item?: (index: number) => { clientX: number } | null },
+    touchList:
+      | TouchList
+      | { 0?: { clientX: number }; item?: (index: number) => { clientX: number } | null },
   ): number | null {
     const firstTouch = touchList.item?.(0) ?? touchList[0] ?? null;
     return firstTouch?.clientX ?? null;

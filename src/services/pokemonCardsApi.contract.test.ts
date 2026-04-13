@@ -72,11 +72,7 @@ describe('pokemonCardsApi', () => {
         expect(parsed.searchParams.get('name')).toBe('Glumanda');
         expect(parsed.searchParams.get('pagination:page')).toBe('1');
         return Promise.resolve(
-          asResponse([
-            { id: 'base-1' },
-            { id: 'base-2' },
-            { id: 'base-wrong-dex' },
-          ]),
+          asResponse([{ id: 'base-1' }, { id: 'base-2' }, { id: 'base-wrong-dex' }]),
         );
       }
 
@@ -145,9 +141,7 @@ describe('pokemonCardsApi', () => {
             { id: 'base-2' },
           ];
 
-          return Promise.resolve(
-            asResponse(firstPage),
-          );
+          return Promise.resolve(asResponse(firstPage));
         }
 
         if (page === '2') {

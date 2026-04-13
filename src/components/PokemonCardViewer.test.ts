@@ -105,7 +105,10 @@ describe('PokemonCardViewer', () => {
       onSelect,
     });
 
-    expect(screen.getByRole('img', { name: 'Glumanda' })).toHaveAttribute('src', 'https://img/a.png');
+    expect(screen.getByRole('img', { name: 'Glumanda' })).toHaveAttribute(
+      'src',
+      'https://img/a.png',
+    );
 
     await fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(onSelect).toHaveBeenCalledWith(1);

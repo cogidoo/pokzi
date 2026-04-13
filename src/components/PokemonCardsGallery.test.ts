@@ -161,7 +161,9 @@ describe('PokemonCardsGallery', () => {
     });
 
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.'),
+    ).toBeInTheDocument();
   });
 
   it('renders error state and forwards retry intent', async () => {

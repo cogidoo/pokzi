@@ -118,8 +118,7 @@
     aspect-ratio: 63 / 88;
     border-radius: 18px;
     overflow: hidden;
-    background:
-      linear-gradient(180deg, #f9fbff 0%, #eaf1ff 100%);
+    background: linear-gradient(180deg, #f9fbff 0%, #eaf1ff 100%);
     border: 1px solid #d7e3f4;
     display: grid;
     place-items: center;
@@ -135,8 +134,7 @@
   .cards-tile__image-placeholder {
     width: 100%;
     height: 100%;
-    background:
-      linear-gradient(90deg, #ecf3ff 0%, #f7faff 50%, #ecf3ff 100%);
+    background: linear-gradient(90deg, #ecf3ff 0%, #f7faff 50%, #ecf3ff 100%);
     background-size: 220% 100%;
     animation: cards-tile-shimmer 1.6s ease-in-out infinite;
   }

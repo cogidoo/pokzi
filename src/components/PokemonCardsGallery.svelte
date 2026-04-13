@@ -171,7 +171,11 @@
       {/if}
     </div>
   {:else if galleryState === 'empty'}
-    <div class="cards-gallery__status cards-gallery__status--empty" role="status" aria-live="polite">
+    <div
+      class="cards-gallery__status cards-gallery__status--empty"
+      role="status"
+      aria-live="polite"
+    >
       <p class="cards-gallery__status-title">Noch keine Karten gefunden</p>
       <p class="cards-gallery__status-message">{emptyMessage}</p>
     </div>
@@ -432,7 +436,12 @@
     aspect-ratio: 63 / 88;
     border-radius: 18px;
     background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15)),
+      linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.15),
+        rgba(255, 255, 255, 0.6),
+        rgba(255, 255, 255, 0.15)
+      ),
       #dfe8f5;
     background-size: 200% 100%;
   }
