@@ -20,3 +20,15 @@ jobs:
         run: npm ci
       - name: DE Index Drift Check
         run: npm run index:de:check
+      - name: Format Check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Type And Svelte Check
+        run: npm run check
+      - name: Unit And Integration Tests
+        run: npm test
+      - name: Production Build
+        run: npm run build
+      - name: GitHub Pages Build
+        run: npm run build:pages

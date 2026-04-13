@@ -15,7 +15,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: DE Index Drift Check
+        run: npm run index:de:check
+      - name: Format Check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Type And Svelte Check
+        run: npm run check
+      - name: Unit And Integration Tests
+        run: npm test
+
   build:
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
