@@ -73,11 +73,32 @@
           onclick={clearQuery}
           aria-label="Suche leeren"
         >
-          Löschen
+          <svg
+            class="search__icon search__icon--clear"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M7 7L17 17" />
+            <path d="M17 7L7 17" />
+          </svg>
         </button>
       {/if}
     </div>
-    <button class="search__submit" type="submit" disabled={submitDisabled}>Suchen</button>
+    <button
+      class="search__submit"
+      type="submit"
+      disabled={submitDisabled}
+    >
+      <svg
+        class="search__icon search__icon--search"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="5.5" />
+        <path d="M15.5 15.5L19 19" />
+      </svg>
+      <span>Suchen</span>
+    </button>
   </div>
   {#if !compact}
     <p id="search-help" class="search__help">
