@@ -170,7 +170,6 @@ Implementation notes:
 - Type chips and stage badge sit close to the identity block and support, rather than compete with, the title.
 - The hero should feel like a mode switch away from result browsing toward one focused Pokemon.
 - On tablet widths, the identity block should align from a stable top edge rather than vertically re-center based on text amount.
-- A two-line hero description must keep the same reserved text area as a three-line hero description so the hero composition does not slide vertically between Pokemon.
 - A related-Pokemon switch inside the detail flow must preserve the perceived hero structure as much as possible.
 
 Implementation notes:
@@ -178,6 +177,7 @@ Implementation notes:
 - Keep the artwork block visually generous and distinct from plain metadata containers.
 - Group name, id, types, stage, and optional description tightly enough that they read as one identity cluster.
 - The optional description must remain visibly subordinate to the name and artwork.
+- The optional hero description should always remain fully readable when present.
 - Avoid adding extra labels, dividers, or badges that make the hero feel busier than the result cards.
 - On iPad widths, use proportion and alignment to make the hero feel premium rather than simply wider.
 

@@ -671,12 +671,7 @@ input:focus-visible {
 .detail__hero-text {
   margin: var(--space-1) 0 0;
   color: var(--text-muted);
-  min-height: calc(1.45em * 3);
   line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .detail__hero-text--empty {

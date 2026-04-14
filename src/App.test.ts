@@ -1282,6 +1282,27 @@ describe('App', () => {
     });
   });
 
+  it('renders the hero description when flavor text is available', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(
+      detailFixture({
+        flavorText:
+          'Pikachu speichert Elektrizitaet in seinen Backentaschen und gibt sie in spannenden Momenten wieder ab.',
+      }),
+    );
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    });
+
+    const heroText = screen.getByText(
+      'Pikachu speichert Elektrizitaet in seinen Backentaschen und gibt sie in spannenden Momenten wieder ab.',
+    );
+    expect(heroText).toHaveClass('detail__hero-text');
+  });
+
   it('navigates to earlier pokemon from evolution tiles', async () => {
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock
