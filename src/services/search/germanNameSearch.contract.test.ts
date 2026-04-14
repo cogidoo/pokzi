@@ -60,6 +60,35 @@ describe('createGermanNameSearchIndex', () => {
     expect(results[1]?.quality).toBe('partial');
   });
 
+  it('ranks prefix partials before mid-word substring partials', async () => {
+    const index = createGermanNameSearchIndex(
+      {
+        fetchSpeciesIndex: () => Promise.resolve(species([1, 2, 3])),
+        fetchGermanIndexItem: (item) => {
+          if (item.id === 1) {
+            return Promise.resolve(entry(1, 'Folipurba'));
+          }
+          if (item.id === 2) {
+            return Promise.resolve(entry(2, 'Matrifol'));
+          }
+          return Promise.resolve(entry(3, 'Flamara'));
+        },
+      },
+      {
+        searchResultLimit: 20,
+        indexRequestConcurrency: 4,
+        indexScanBatchSize: 20,
+        maxBatchesAfterExactMatch: 2,
+      },
+    );
+
+    const results = await index.findGermanMatches('fo');
+
+    expect(results.map((result) => result.item.germanName)).toEqual(['Folipurba', 'Matrifol']);
+    expect(results[0]?.quality).toBe('partial');
+    expect(results[1]?.quality).toBe('partial');
+  });
+
   it('returns exact quality for normalized exact match', async () => {
     const index = createGermanNameSearchIndex(
       {
@@ -226,5 +255,29 @@ describe('createGermanNameSearchIndex', () => {
     );
 
     await expect(index.findGermanMatches('abcdefghij')).resolves.toEqual([]);
+  });
+
+  it('falls back to tolerant matches when no exact, prefix, or infix partial exists', async () => {
+    const index = createGermanNameSearchIndex(
+      {
+        fetchSpeciesIndex: () => Promise.resolve(species([1, 2])),
+        fetchGermanIndexItem: (item) => {
+          if (item.id === 1) {
+            return Promise.resolve(entry(1, 'Folipurba'));
+          }
+          return Promise.resolve(entry(2, 'Flamara'));
+        },
+      },
+      {
+        searchResultLimit: 20,
+        indexRequestConcurrency: 4,
+        indexScanBatchSize: 20,
+        maxBatchesAfterExactMatch: 2,
+      },
+    );
+
+    const results = await index.findGermanMatches('folipubra');
+
+    expect(results).toEqual([{ item: entry(1, 'Folipurba'), quality: 'tolerant' }]);
   });
 });

@@ -48,8 +48,9 @@ Search stays forgiving and confidence-building for touch keyboard input, even wh
   - name length `6+`: maximum edit distance `2`
 - Ranking order for text query results:
   1. exact normalized German-name match
-  2. prefix/partial normalized German-name match
-  3. tolerant typo matches ordered by lowest edit distance, then alphabetically
+  2. prefix normalized German-name match
+  3. mid-word substring normalized German-name match
+  4. tolerant typo matches ordered by lowest edit distance, then alphabetically
 - Never suppress a valid exact match because of tolerant alternatives.
 - When tolerance yields no candidates, keep existing no-results behavior from feature `01`.
 
@@ -74,7 +75,7 @@ Search stays forgiving and confidence-building for touch keyboard input, even wh
 ### Success
 
 - Result list may include tolerant matches only when exact/partial quality is insufficient.
-- Exact and close partial matches always stay ahead of tolerant typo matches.
+- Exact, prefix partial, and substring partial matches always stay ahead of tolerant typo matches.
 - If results are tolerant-only, show one refinement hint directly above the results list and below the sticky search area.
 - If at least one exact or partial match exists, do not show the tolerant-only refinement hint.
 
@@ -113,6 +114,8 @@ Search stays forgiving and confidence-building for touch keyboard input, even wh
 - A one-edit typo in short names can still produce a valid result when matching data exists.
 - A two-edit typo in longer names can still produce a valid result when matching data exists.
 - Exact German-name matches are always ranked before tolerant typo matches.
+- Prefix partial matches are always ranked before mid-word substring partial matches.
+- Mid-word substring partial matches are always ranked before tolerant typo matches.
 - Tolerant-only result sets show a short German refinement hint.
 - Tolerant-only refinement hint appears above the list only when all visible matches are tolerant matches.
 - Tolerant-only refinement hint uses the exact copy `Meintest du vielleicht:` and no extra punctuation variants.

@@ -105,7 +105,8 @@ export function createGermanNameSearchIndex(
     findGermanMatches: async (toleranceQuery, signal) => {
       const speciesIndex = await dependencies.fetchSpeciesIndex(signal);
       let exact: GermanPokemonIndexItem | null = null;
-      const partial: GermanPokemonIndexItem[] = [];
+      const prefixPartial: GermanPokemonIndexItem[] = [];
+      const infixPartial: GermanPokemonIndexItem[] = [];
       const seenPartialIds = new Set<number>();
       let batchesAfterExactMatch: number | null = null;
 
@@ -116,7 +117,14 @@ export function createGermanNameSearchIndex(
         }
 
         const hadExact = exact !== null;
-        exact = pushStrongMatch(cached, toleranceQuery, exact, partial, seenPartialIds);
+        exact = pushStrongMatch(
+          cached,
+          toleranceQuery,
+          exact,
+          prefixPartial,
+          infixPartial,
+          seenPartialIds,
+        );
         if (!hadExact && exact !== null) {
           batchesAfterExactMatch = 0;
         }
@@ -125,7 +133,7 @@ export function createGermanNameSearchIndex(
       while (
         localizedScanCursor < speciesIndex.length &&
         !shouldStopIndexScan(
-          partial.length,
+          prefixPartial.length + infixPartial.length,
           batchesAfterExactMatch,
           config.searchResultLimit,
           config.maxBatchesAfterExactMatch,
@@ -146,7 +154,14 @@ export function createGermanNameSearchIndex(
           if (localizedItem) {
             germanIndexById.set(localizedItem.id, localizedItem);
             const hadExact = exact !== null;
-            exact = pushStrongMatch(localizedItem, toleranceQuery, exact, partial, seenPartialIds);
+            exact = pushStrongMatch(
+              localizedItem,
+              toleranceQuery,
+              exact,
+              prefixPartial,
+              infixPartial,
+              seenPartialIds,
+            );
             if (!hadExact && exact !== null) {
               batchesAfterExactMatch = 0;
             }
@@ -166,11 +181,14 @@ export function createGermanNameSearchIndex(
         }
       }
 
-      if (exact || partial.length > 0) {
-        const sortedPartial = partial
+      if (exact || prefixPartial.length > 0 || infixPartial.length > 0) {
+        const sortedPrefixPartial = prefixPartial
           .filter((item) => item.id !== exact?.id)
           .sort(sortByGermanName);
-        return [...(exact ? [exact] : []), ...sortedPartial]
+        const sortedInfixPartial = infixPartial
+          .filter((item) => item.id !== exact?.id)
+          .sort(sortByGermanName);
+        return [...(exact ? [exact] : []), ...sortedPrefixPartial, ...sortedInfixPartial]
           .slice(0, config.searchResultLimit)
           .map((item) => ({
             item,
@@ -287,12 +305,13 @@ function levenshteinWithinLimit(
 }
 
 /**
- * Places one localized entry into exact and partial buckets.
+ * Places one localized entry into exact, prefix-partial, and infix-partial buckets.
  *
  * @param item - Candidate localized item.
  * @param toleranceQuery - Normalized tolerant query text.
  * @param exact - Current exact match.
- * @param partial - Mutable partial match list.
+ * @param prefixPartial - Mutable prefix partial match list.
+ * @param infixPartial - Mutable infix partial match list.
  * @param seenPartialIds - Set used to avoid duplicate partial entries.
  * @returns Updated exact match value.
  */
@@ -300,11 +319,21 @@ function pushStrongMatch(
   item: GermanPokemonIndexItem,
   toleranceQuery: string,
   exact: GermanPokemonIndexItem | null,
-  partial: GermanPokemonIndexItem[],
+  prefixPartial: GermanPokemonIndexItem[],
+  infixPartial: GermanPokemonIndexItem[],
   seenPartialIds: Set<number>,
 ): GermanPokemonIndexItem | null {
   if (item.germanNameToleranceKey === toleranceQuery) {
     return item;
+  }
+
+  if (item.germanNameToleranceKey.startsWith(toleranceQuery)) {
+    if (!seenPartialIds.has(item.id)) {
+      prefixPartial.push(item);
+      seenPartialIds.add(item.id);
+    }
+
+    return exact;
   }
 
   if (!item.germanNameToleranceKey.includes(toleranceQuery)) {
@@ -312,7 +341,7 @@ function pushStrongMatch(
   }
 
   if (!seenPartialIds.has(item.id)) {
-    partial.push(item);
+    infixPartial.push(item);
     seenPartialIds.add(item.id);
   }
 

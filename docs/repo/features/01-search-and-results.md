@@ -55,7 +55,8 @@ The user gets immediate feedback, can refine the query without friction, and can
 - Text query: search only against German Pokemon names.
 - Trim leading and trailing whitespace before evaluating the query.
 - Match text queries case-insensitively.
-- Prefer exact German-name matches over partial-name matches when both exist.
+- Prefer exact German-name matches over prefix partial-name matches when both exist.
+- Rank text partial matches first by normalized name prefix, then by normalized mid-name substring matches.
 - Apply tolerant text-recovery matching rules from `04-search-input-tolerance.md` after exact and partial German-name checks.
 - Keep the results list bounded so it remains fast and easy to scan on iPad.
 
@@ -187,6 +188,7 @@ Implementation notes:
 - A text query searches only against German Pokemon names.
 - Leading and trailing whitespace do not change the search outcome.
 - Text search matching is case-insensitive.
+- Text search partial matching prefers the start of the normalized German name and may include later substring matches after prefix matches.
 - The result list updates automatically while typing and can also be triggered by the visible search button or Enter.
 - Result cards render image, German name, ID, German type labels, and evolution stage.
 - When only tolerant matches are shown, the UI displays the fixed German refinement hint from feature `04`.
