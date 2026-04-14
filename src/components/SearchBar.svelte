@@ -50,7 +50,7 @@
 </script>
 
 <form class={`search ${compact ? 'search--compact' : ''}`} onsubmit={submit}>
-  <label class="search__label" for="pokemon-search">Pokemon suchen</label>
+  <label class="search__label visually-hidden" for="pokemon-search">Pokemon suchen</label>
   <div class="search__controls">
     <div class="search__input-wrap">
       <input

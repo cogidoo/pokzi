@@ -99,14 +99,19 @@ The user gets immediate feedback, can refine the query without friction, and can
 
 ### Search Start Composition
 
-- The first impression is headline first, search second, helper third.
+- The first impression is one clear headline first, search second, helper third.
 - The search field is the strongest interactive element on screen.
 - The helper state should feel inviting, not instructional-heavy.
 - Avoid decorative elements that compete with the input.
+- Do not stack multiple intro messages above the search field.
+- The search field may rely on headline, placeholder, and helper text instead of a separate visible field label when the input keeps an accessible programmatic label.
 
 Implementation notes:
 
 - The header should feel like a compact discovery intro, not like a generic form page.
+- Use a single visible headline above the search surface.
+- Do not pair the headline with an additional eyebrow and explanatory subheadline on the start screen.
+- If the visible field label is removed for compactness, preserve an accessible label on the input and keep the placeholder/helper copy short and explicit.
 - Keep the headline and helper copy short enough that the first result can still appear quickly below the sticky search area.
 - The search surface should visually read as the primary object on the screen before results are shown.
 - Avoid stacking multiple equally prominent containers above the first result.

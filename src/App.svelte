@@ -580,11 +580,7 @@
     <section class={`app__search-rail ${compactSearch ? 'app__search-rail--compact' : ''}`}>
       <div class="app__search-shell">
         <header class={`app__header ${compactSearch ? 'app__header--compact' : ''}`}>
-          <p class="app__eyebrow">Pokzi</p>
           <h1 class="app__title">Pokemon entdecken</h1>
-          <p class="app__subtitle">
-            Suche mit deutschem Namen oder Nummer und öffne direkt die passende Karte.
-          </p>
         </header>
 
         <section class="app__search">

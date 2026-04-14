@@ -210,7 +210,7 @@ Anatomy:
 Interaction rules:
 
 - Neutral start may show the full helper text.
-- Once the user starts interacting or results are visible, the search area may compact slightly, but label, field, and submit action must remain obvious.
+- Once the user starts interacting or results are visible, the search area may compact slightly, but the search purpose, field, and submit action must remain obvious.
 - In results mode, compacting should be tied to downward scrolling and should reset to expanded when the user returns to the top.
 - Clear action must not overlap typed content.
 - Sticky behavior must feel stable, not jumpy.
@@ -219,6 +219,7 @@ Implementation guidance:
 
 - Prefer `type="search"` semantics and a search-oriented keyboard/input experience when possible.
 - The full search area should read as one primary interaction zone, not as separate unrelated controls.
+- The search input must keep a programmatic label even when the visible layout hides the label in favor of a tighter composition.
 - In compact mode, reduce explanatory chrome before reducing the perceived importance of the search field.
 - Keep the search field visually stronger than the submit button; the button supports confidence, but the field remains the main control.
 - Placeholder text should stay short enough to scan instantly.

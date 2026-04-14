@@ -61,7 +61,6 @@ input:focus-visible {
 
 .app__header {
   display: grid;
-  gap: var(--space-2);
   margin-bottom: var(--space-3);
   padding: var(--space-4) var(--space-4) 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 252, 0.92) 100%);
@@ -69,25 +68,8 @@ input:focus-visible {
   border-bottom: 0;
   transition:
     padding 150ms ease,
-    margin-bottom 150ms ease,
-    gap 150ms ease;
+    margin-bottom 150ms ease;
   overflow-anchor: none;
-}
-
-.app__eyebrow {
-  margin: 0;
-  color: var(--primary);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.02em;
-  max-height: 2em;
-  opacity: 1;
-  overflow: hidden;
-  transform: translateY(0);
-  transition:
-    max-height 150ms ease,
-    opacity 120ms ease,
-    transform 150ms ease;
 }
 
 .app__title {
@@ -97,38 +79,15 @@ input:focus-visible {
   transition: font-size 150ms ease;
 }
 
-.app__subtitle {
-  margin: 0;
-  color: var(--text-muted);
-  width: 100%;
-  max-height: 4.5em;
-  opacity: 1;
-  overflow: hidden;
-  transform: translateY(0);
-  transition:
-    max-height 150ms ease,
-    opacity 120ms ease,
-    transform 150ms ease;
-}
-
 .app__header--compact {
   padding-top: var(--space-2);
   margin-bottom: 0;
-  gap: 0;
 }
 
 .app__header--compact .app__title {
   font-size: clamp(1.65rem, 4vw, 1.95rem);
 }
 
-.app__header--compact .app__eyebrow,
-.app__header--compact .app__subtitle {
-  max-height: 0;
-  opacity: 0;
-  margin: 0;
-  transform: translateY(-6px);
-  pointer-events: none;
-}
 
 .app__search {
   padding: 0;
@@ -154,17 +113,6 @@ input:focus-visible {
 
 .search--compact {
   padding: var(--space-3);
-}
-
-.search--compact .search__label {
-  margin-bottom: var(--space-1);
-  font-size: 16px;
-}
-
-.search__label {
-  display: block;
-  margin-bottom: var(--space-2);
-  font-weight: 700;
 }
 
 .search__controls {
