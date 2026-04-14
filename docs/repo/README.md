@@ -58,7 +58,7 @@ Current feature documents:
 ## Authoring Rules
 
 - Update the relevant file in this directory before implementation.
-- For every new feature, review all repository Markdown files and update every impacted document.
+- Review only the repo docs that are relevant to the changed behavior and update only the impacted Markdown files.
 - Keep behavior decisions here, not in `INSTRUCTIONS.md`.
 - Keep refactor plans, architecture reviews, and technical decisions in `docs/architecture/`, not in this directory.
 - Keep visual direction in `DESIGN_BRIEF.md`.

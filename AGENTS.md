@@ -29,40 +29,32 @@ Lightweight default instructions for agent work in this repository.
 - Treat `docs/repo/*` as the source of truth for user-visible behavior and scope.
 - If behavior changes, update the relevant file in `docs/repo/*` first, then align implementation.
 - If technical structure or agent workflow changes, document it in `docs/architecture/*`.
+- Use `PLANS.md` only for large refactors, architectural changes, multi-step features, or work that is likely to span sessions.
 - Keep all Markdown files in English.
 - Keep user-facing UI copy in German. Keep developer-facing docs, TSDoc, JSDoc, comments, and agent-operating docs in English.
 - Keep chat with the user in German unless the user asks for another language.
 - Keep API/data logic in `src/services` and keep UI components focused and testable.
 - Do not add lint or type suppressions unless explicitly approved.
 - Prefer minimal, high-confidence changes and avoid unrelated edits.
+- Preserve documented repo behavior unless the task intentionally updates the owning docs first.
 
-## Default Working Mode
+## Default Working Behavior
 
 - Single agent by default.
 - Analyze only the files needed for the current task.
 - Prefer local code analysis before loading docs.
+- Use balanced reasoning depth for normal work, go lower only for trivial local tasks, and go deeper for ambiguity, risky refactors, architecture, or hard debugging.
 - Use plan mode only when the task is multi-step, ambiguous, architectural, or a non-local refactor.
 - Use repo skills or repo-defined agents only when the user asks for them or the task clearly needs escalation.
+- Keep QA, visual review, and orchestration optional escalation paths for large diffs, critical logic, architecture work, or explicit review requests.
 - Run the smallest relevant verification first. Run broader checks only when the change is cross-cutting, risky, or close to handoff.
-
-## Repo Invariants
-
-- Preserve documented current behavior unless the docs are intentionally changed first.
-- Search supports German-name input and numeric ID input.
-- The app has a dedicated Pokemon detail flow with hash-route deep links.
-- German Pokemon names remain the primary display labels.
-- German type labels remain the UI labels for type chips.
-
-## Optional Escalation
-
-- Optional delivery-system details live in `docs/architecture/2026-04-12-token-efficient-agentic-delivery-decision.md`.
-- Use the orchestrator path only for explicit workflow routing, multi-stage work, or review loops.
-- Use QA/review as an escalation step for large diffs, critical logic, risky refactors, or when the user explicitly asks.
+- Keep summaries concise and handoffs minimal: what changed, why, risks, and tests.
 
 ## Definition Of Done
 
 - The requested change or review outcome is complete.
 - Touched docs and code are aligned.
-- Relevant checks were run, or any skipped checks were called out explicitly.
+- The changed logic was self-validated locally, obvious edge cases were checked, and relevant checks were run or explicitly skipped.
+- Unrelated files were not changed without reason.
 - No known high-risk issue is being hidden.
 - Final handoff states: what changed, why, risks, and tests.

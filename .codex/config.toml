@@ -2,13 +2,13 @@
 
 # Project-local Codex configuration for startai.
 # This repository uses repo-local skills under `.agents/skills/`.
-# It also sets a conservative runtime baseline for autonomous delivery.
+# It also sets a balanced runtime baseline for autonomous delivery.
 
 model = "gpt-5.4"
-model_reasoning_effort = "low"
+model_reasoning_effort = "medium"
 model_reasoning_summary = "none"
 model_verbosity = "low"
-plan_mode_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "high"
 project_doc_max_bytes = 12000
 tool_output_token_limit = 4000
 profile = "balanced"
@@ -98,7 +98,7 @@ personality = "friendly"
 
 [profiles.architecture]
 model = "gpt-5.4"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 model_reasoning_summary = "none"
 model_verbosity = "low"
 web_search = "cached"
@@ -147,7 +147,7 @@ personality = "pragmatic"
 
 [profiles.balanced]
 model = "gpt-5.4"
-model_reasoning_effort = "low"
+model_reasoning_effort = "medium"
 model_reasoning_summary = "none"
 model_verbosity = "low"
 web_search = "cached"

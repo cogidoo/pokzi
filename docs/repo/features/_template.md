@@ -79,6 +79,6 @@ Describe why this feature matters for the user.
 
 ## Documentation Impact Check
 
-- review all repository Markdown files
+- review only the Markdown files that own or constrain the changed behavior
 - update every impacted `.md` file
 - confirm which Markdown files changed and why
