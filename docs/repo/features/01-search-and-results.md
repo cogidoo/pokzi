@@ -131,6 +131,9 @@ Implementation notes:
 - Compact mode should reduce helper and header weight without making the page feel like a different screen.
 - Preserve enough spacing below the sticky search so the first card never feels clipped or trapped under the header.
 - The sticky surface should remain visually connected to the results list rather than floating like a separate toolbar.
+- Treat the sticky surface as one opaque discovery panel so results disappear beneath a clean lower boundary instead of shimmering through the shell.
+- The expanded search panel may stay softly rounded, but the compact sticky state should anchor flush to the top edge so the upper boundary reads as fully closed and stable while scrolling.
+- During downward scroll, the rounded expanded panel should glide upward first; compact top-flush mode should begin only after that rounded cap has effectively left the visible top edge, and the lower boundary should read as a soft mask rather than a hard divider line.
 
 ### Result Card Visual Priority
 

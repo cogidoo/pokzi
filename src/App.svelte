@@ -49,6 +49,10 @@
   let resultsScrolled = $state(false);
   let lastResultsScrollY = 0;
   let lastTouchY = 0;
+  let searchRailElement = $state<HTMLElement | null>(null);
+  let searchShellElement = $state<HTMLElement | null>(null);
+  let compactAlignmentFrame = 0;
+  let expandedAlignmentFrame = 0;
 
   let activeDetailAbort: AbortController | null = null;
   let activeDetailCardsAbort: AbortController | null = null;
@@ -58,8 +62,10 @@
 
   const DEBOUNCE_MS = 280;
   const HERO_TEXT_PLACEHOLDER = ' ';
+  const SEARCH_SHELL_RADIUS_TOP = 28;
+  const EXPANDED_HERO_HANDOFF_SCROLL_Y = 52;
   const COMPACT_COLLAPSE_SCROLL_Y = 16;
-  const COMPACT_EXPAND_SCROLL_Y = 0;
+  const COMPACT_EXPAND_SCROLL_Y = EXPANDED_HERO_HANDOFF_SCROLL_Y;
   const UPWARD_INTENT_WINDOW_MS = 220;
   let lastUpwardIntentAt = -Infinity;
   const compactSearch = $derived(uiState === 'success' && results.length > 0 && resultsScrolled);
@@ -276,16 +282,104 @@
     const isScrollingDown = scrollY > lastResultsScrollY;
     const isScrollingUp = scrollY < lastResultsScrollY;
 
-    if (!resultsScrolled && isScrollingDown && scrollY >= COMPACT_COLLAPSE_SCROLL_Y) {
+    if (!resultsScrolled && isScrollingDown && shouldCompactResultsHeader(scrollY)) {
       resultsScrolled = true;
+      queueCompactSearchAlignment();
     }
 
     const canExpandAtTop = isSearchResultsPageScrollable() || hasRecentUpwardIntent();
     if (resultsScrolled && isScrollingUp && scrollY <= COMPACT_EXPAND_SCROLL_Y && canExpandAtTop) {
       resultsScrolled = false;
+      queueExpandedSearchAlignment();
     }
 
     lastResultsScrollY = scrollY;
+  }
+
+  /**
+   * Keeps the compact shell visually pinned after the layout shrinks around the switch point.
+   */
+  function queueCompactSearchAlignment() {
+    if (compactAlignmentFrame !== 0) {
+      return;
+    }
+
+    compactAlignmentFrame = window.requestAnimationFrame(() => {
+      compactAlignmentFrame = 0;
+
+      if (!resultsScrolled || !searchShellElement) {
+        return;
+      }
+
+      const shellTop = searchShellElement.getBoundingClientRect().top;
+      if (!Number.isFinite(shellTop) || Math.abs(shellTop) <= 1) {
+        return;
+      }
+
+      window.scrollBy(0, shellTop);
+    });
+  }
+
+  /**
+   * Normalizes the browser's sticky reflow when leaving compact mode.
+   */
+  function queueExpandedSearchAlignment() {
+    if (expandedAlignmentFrame !== 0) {
+      return;
+    }
+
+    expandedAlignmentFrame = window.requestAnimationFrame(() => {
+      expandedAlignmentFrame = 0;
+
+      if (resultsScrolled || !isSearchResultsPageScrollable()) {
+        return;
+      }
+
+      const targetScrollY = Math.max(COMPACT_EXPAND_SCROLL_Y, 0);
+      if (Math.abs(window.scrollY - targetScrollY) <= 1) {
+        return;
+      }
+
+      window.scrollTo({ top: targetScrollY });
+    });
+  }
+
+  /**
+   * Determines when the expanded search shell has naturally reached the compact handoff point.
+   *
+   * @param scrollY - Current vertical page offset.
+   * @returns True when compact mode may activate.
+   */
+  function shouldCompactResultsHeader(scrollY: number): boolean {
+    const geometryEligible = getCompactEligibilityFromGeometry();
+    if (geometryEligible !== null) {
+      return geometryEligible;
+    }
+
+    return scrollY >= COMPACT_COLLAPSE_SCROLL_Y;
+  }
+
+  /**
+   * Reads the sticky rail position to decide whether the rounded expanded cap has scrolled away.
+   *
+   * @returns `true` or `false` when geometry is available, otherwise `null`.
+   */
+  function getCompactEligibilityFromGeometry(): boolean | null {
+    if (!searchShellElement) {
+      return null;
+    }
+
+    const shellRect = searchShellElement.getBoundingClientRect();
+    if (shellRect.width === 0 && shellRect.height === 0) {
+      return null;
+    }
+
+    const shellTop = shellRect.top;
+    if (!Number.isFinite(shellTop)) {
+      return null;
+    }
+
+    return shellTop <= -SEARCH_SHELL_RADIUS_TOP + 1;
   }
 
   /**
@@ -300,6 +394,7 @@
     lastUpwardIntentAt = Date.now();
     if (window.scrollY <= COMPACT_EXPAND_SCROLL_Y || !isSearchResultsPageScrollable()) {
       resultsScrolled = false;
+      queueExpandedSearchAlignment();
     }
   }
 
@@ -528,6 +623,12 @@
 
   $effect(() => {
     return () => {
+      if (compactAlignmentFrame !== 0) {
+        window.cancelAnimationFrame(compactAlignmentFrame);
+      }
+      if (expandedAlignmentFrame !== 0) {
+        window.cancelAnimationFrame(expandedAlignmentFrame);
+      }
       searchController.dispose();
     };
   });
@@ -577,8 +678,11 @@
 
 <main class="app">
   {#if route.kind === 'search'}
-    <section class={`app__search-rail ${compactSearch ? 'app__search-rail--compact' : ''}`}>
-      <div class="app__search-shell">
+    <section
+      bind:this={searchRailElement}
+      class={`app__search-rail ${isSearchResultsContext() ? 'app__search-rail--results' : ''} ${compactSearch ? 'app__search-rail--compact' : ''}`}
+    >
+      <div bind:this={searchShellElement} class="app__search-shell">
         <header class={`app__header ${compactSearch ? 'app__header--compact' : ''}`}>
           <h1 class="app__title">Pokemon entdecken</h1>
         </header>
