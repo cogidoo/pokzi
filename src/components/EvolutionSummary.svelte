@@ -130,7 +130,7 @@
     return order.map((originId) => ({
       originId,
       originName: originNames[originId],
-      items: uniqueTiles(groups[originId] ?? []),
+      items: uniqueTiles(groups[originId]),
     }));
   }
 </script>

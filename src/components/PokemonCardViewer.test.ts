@@ -259,6 +259,28 @@ describe('PokemonCardViewer', () => {
     opener.remove();
   });
 
+  it('skips focus trapping when the viewer temporarily has no focusable controls', async () => {
+    render(PokemonCardViewer, {
+      cards,
+      currentIndex: 0,
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    const dialog = screen.getByRole('dialog', { name: 'Karte Glumanda' });
+    const closeButton = screen.getAllByRole('button', { name: 'Ansicht schließen' })[1];
+    const querySelectorAllSpy = vi
+      .spyOn(dialog, 'querySelectorAll')
+      .mockReturnValue([] as unknown as NodeListOf<HTMLElement>);
+
+    try {
+      await fireEvent.keyDown(window, { key: 'Tab' });
+      expect(closeButton).toHaveFocus();
+    } finally {
+      querySelectorAllSpy.mockRestore();
+    }
+  });
+
   it('wraps focus forward to the first control when tabbing from the last control', async () => {
     render(PokemonCardViewer, {
       cards,

@@ -50,7 +50,7 @@
   let lastResultsScrollY = 0;
   let lastTouchY = 0;
   let searchRailElement = $state<HTMLElement | null>(null);
-  let searchShellElement = $state<HTMLElement | null>(null);
+  let searchShellElement = $state<HTMLElement>(document.createElement('div'));
   let compactAlignmentFrame = 0;
   let expandedAlignmentFrame = 0;
 
@@ -307,7 +307,7 @@
     compactAlignmentFrame = window.requestAnimationFrame(() => {
       compactAlignmentFrame = 0;
 
-      if (!resultsScrolled || !searchShellElement) {
+      if (!resultsScrolled) {
         return;
       }
 
@@ -365,10 +365,6 @@
    * @returns `true` or `false` when geometry is available, otherwise `null`.
    */
   function getCompactEligibilityFromGeometry(): boolean | null {
-    if (!searchShellElement) {
-      return null;
-    }
-
     const shellRect = searchShellElement.getBoundingClientRect();
     if (shellRect.width === 0 && shellRect.height === 0) {
       return null;

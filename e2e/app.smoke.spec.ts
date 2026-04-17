@@ -746,13 +746,13 @@ async function routeStickyOpaqueSurfaceFu(page: Page) {
     if (path === '/api/v2/pokemon-species' && url.searchParams.get('limit') === '1400') {
       return json(route, {
         results: ids.map((id) => ({
-          name: `fu-${id}`,
-          url: `https://pokeapi.co/api/v2/pokemon-species/${id}/`,
+          name: `fu-${String(id)}`,
+          url: `https://pokeapi.co/api/v2/pokemon-species/${String(id)}/`,
         })),
       });
     }
 
-    const speciesMatch = path.match(/^\/api\/v2\/pokemon-species\/(\d+)\/?$/);
+    const speciesMatch = /^\/api\/v2\/pokemon-species\/(\d+)\/?$/.exec(path);
     if (speciesMatch) {
       const id = Number(speciesMatch[1]);
       if (!ids.includes(id)) {
@@ -761,16 +761,16 @@ async function routeStickyOpaqueSurfaceFu(page: Page) {
 
       return json(route, {
         names: [
-          { language: { name: 'en' }, name: `Fu ${id}` },
-          { language: { name: 'de' }, name: `Fu ${id}` },
+          { language: { name: 'en' }, name: `Fu ${String(id)}` },
+          { language: { name: 'de' }, name: `Fu ${String(id)}` },
         ],
         evolution_chain: {
-          url: `https://pokeapi.co/api/v2/evolution-chain/${id}/`,
+          url: `https://pokeapi.co/api/v2/evolution-chain/${String(id)}/`,
         },
       });
     }
 
-    const pokemonMatch = path.match(/^\/api\/v2\/pokemon\/(\d+)\/?$/);
+    const pokemonMatch = /^\/api\/v2\/pokemon\/(\d+)\/?$/.exec(path);
     if (pokemonMatch) {
       const id = Number(pokemonMatch[1]);
       if (!ids.includes(id)) {
@@ -779,19 +779,19 @@ async function routeStickyOpaqueSurfaceFu(page: Page) {
 
       return json(route, {
         id,
-        name: `fu-${id}`,
+        name: `fu-${String(id)}`,
         height: 6,
         weight: 80,
         sprites: {
           other: {
-            'official-artwork': { front_default: `https://img.test/fu-${id}.png` },
+            'official-artwork': { front_default: `https://img.test/fu-${String(id)}.png` },
           },
         },
         types: [{ type: { name: 'fire' } }],
       });
     }
 
-    const evolutionMatch = path.match(/^\/api\/v2\/evolution-chain\/(\d+)\/?$/);
+    const evolutionMatch = /^\/api\/v2\/evolution-chain\/(\d+)\/?$/.exec(path);
     if (evolutionMatch) {
       const id = Number(evolutionMatch[1]);
       if (!ids.includes(id)) {
@@ -801,8 +801,8 @@ async function routeStickyOpaqueSurfaceFu(page: Page) {
       return json(route, {
         chain: {
           species: {
-            name: `fu-${id}`,
-            url: `https://pokeapi.co/api/v2/pokemon-species/${id}/`,
+            name: `fu-${String(id)}`,
+            url: `https://pokeapi.co/api/v2/pokemon-species/${String(id)}/`,
           },
           evolves_to: [],
         },

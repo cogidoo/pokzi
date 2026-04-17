@@ -93,6 +93,20 @@ function dispatchTouch(type: 'touchstart' | 'touchmove', clientY?: number) {
   window.dispatchEvent(event);
 }
 
+function rect(top: number, width: number, height: number): DOMRect {
+  return {
+    x: 0,
+    y: top,
+    top,
+    bottom: top + height,
+    left: 0,
+    right: width,
+    width,
+    height,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
+
 function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
   return {
     id: 25,
@@ -179,6 +193,15 @@ function expectCompactSearchHeader(container: HTMLElement) {
   expect(container.querySelector('.app__header')?.classList.contains('app__header--compact')).toBe(
     true,
   );
+}
+
+function getSearchShell(container: HTMLElement): HTMLElement {
+  const searchShell = container.querySelector('.app__search-shell');
+  if (!(searchShell instanceof HTMLElement)) {
+    throw new Error('Expected search shell to be rendered.');
+  }
+
+  return searchShell;
 }
 
 describe('App', () => {
@@ -498,6 +521,214 @@ describe('App', () => {
     dispatchTouch('touchmove', 120);
     await Promise.resolve();
     expectExpandedSearchHeader(container);
+  });
+
+  it('keeps the results header expanded when shell geometry says the cap is still visible', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    const searchShell = getSearchShell(container);
+    const boundingRectSpy = vi
+      .spyOn(searchShell, 'getBoundingClientRect')
+      .mockReturnValue(rect(0, 320, 120));
+
+    try {
+      setScrollY(80);
+      window.dispatchEvent(new Event('scroll'));
+      await Promise.resolve();
+
+      expectExpandedSearchHeader(container);
+    } finally {
+      boundingRectSpy.mockRestore();
+    }
+  });
+
+  it('compacts early when shell geometry already crossed the compact threshold', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    const searchShell = getSearchShell(container);
+    const boundingRectSpy = vi
+      .spyOn(searchShell, 'getBoundingClientRect')
+      .mockReturnValue(rect(-40, 320, 120));
+
+    try {
+      setScrollY(5);
+      window.dispatchEvent(new Event('scroll'));
+      await Promise.resolve();
+
+      expectCompactSearchHeader(container);
+    } finally {
+      boundingRectSpy.mockRestore();
+    }
+  });
+
+  it('falls back to scroll threshold when shell geometry is not finite', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    const searchShell = getSearchShell(container);
+    const boundingRectSpy = vi
+      .spyOn(searchShell, 'getBoundingClientRect')
+      .mockReturnValue(rect(Number.NaN, 320, 120));
+
+    try {
+      setScrollY(80);
+      window.dispatchEvent(new Event('scroll'));
+      await Promise.resolve();
+
+      expectCompactSearchHeader(container);
+    } finally {
+      boundingRectSpy.mockRestore();
+    }
+  });
+
+  it('realigns the compact shell when layout shrink leaves it offset from the viewport top', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    const searchShell = getSearchShell(container);
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+      });
+    const boundingRectSpy = vi
+      .spyOn(searchShell, 'getBoundingClientRect')
+      .mockImplementationOnce(() => rect(-40, 320, 120))
+      .mockImplementation(() => rect(20, 320, 120));
+    const scrollBySpy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+
+    try {
+      setScrollY(5);
+      window.dispatchEvent(new Event('scroll'));
+      await Promise.resolve();
+
+      expectCompactSearchHeader(container);
+      expect(scrollBySpy).toHaveBeenCalledWith(0, 20);
+    } finally {
+      requestAnimationFrameSpy.mockRestore();
+      boundingRectSpy.mockRestore();
+      scrollBySpy.mockRestore();
+    }
+  });
+
+  it('cancels queued search-alignment frames on teardown', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    let nextFrameId = 1;
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation(() => nextFrameId++);
+    const cancelAnimationFrameSpy = vi.spyOn(window, 'cancelAnimationFrame');
+
+    try {
+      const { unmount } = render(App);
+
+      await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+        target: { value: 'pikachu' },
+      });
+      vi.advanceTimersByTime(300);
+      await waitFor(() => {
+        expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+      });
+
+      setScrollY(80);
+      window.dispatchEvent(new Event('scroll'));
+      await Promise.resolve();
+
+      setPageHeights(800, 800);
+      window.dispatchEvent(new Event('resize'));
+      await Promise.resolve();
+
+      window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
+      await Promise.resolve();
+
+      unmount();
+
+      expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(1);
+      expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(2);
+    } finally {
+      requestAnimationFrameSpy.mockRestore();
+      cancelAnimationFrameSpy.mockRestore();
+    }
   });
 
   it('shows tolerant-only hint above results when all matches are tolerant', async () => {
@@ -966,6 +1197,74 @@ describe('App', () => {
         screen.getByText('Die Karten konnten gerade nicht geladen werden.'),
       ).toBeInTheDocument();
     });
+  });
+
+  it('ignores stale cards responses after switching to another detail', async () => {
+    const staleCardsPending = deferred<PokemonCard[]>();
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture()).mockResolvedValueOnce(
+      detailFixture({
+        id: 26,
+        name: 'raichu',
+        displayName: 'Raichu',
+        image: 'https://img/raichu.png',
+        evolution: {
+          stage: 'Phase 2',
+          sharedPath: [
+            { id: 172, displayName: 'Pichu', image: 'https://img/pichu.png' },
+            { id: 25, displayName: 'Pikachu', image: 'https://img/pikachu.png' },
+            { id: 26, displayName: 'Raichu', image: 'https://img/raichu.png' },
+          ],
+          branchGroups: [],
+        },
+      }),
+    );
+    fetchPokemonCardsMock
+      .mockImplementationOnce(() => staleCardsPending.promise)
+      .mockResolvedValueOnce([]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Zu Raichu wechseln' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Raichu' })).toBeInTheDocument();
+    });
+
+    staleCardsPending.resolve([cardFixture({ name: 'Veraltete Karte', dexIds: [25] })]);
+    await Promise.resolve();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.'),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Veraltete Karte')).not.toBeInTheDocument();
+  });
+
+  it('swallows abort-style cards errors during teardown', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockImplementationOnce(
+      (_dexId: number, _germanName: string, signal?: AbortSignal) =>
+        new Promise<PokemonCard[]>((_, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+          });
+        }),
+    );
+
+    const { unmount } = render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Pikachu' })).toBeInTheDocument();
+    });
+
+    expect(unmount).not.toThrow();
   });
 
   it('navigates to adjacent pokemon from evolution tiles', async () => {

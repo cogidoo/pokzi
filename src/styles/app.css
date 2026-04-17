@@ -61,8 +61,8 @@ input:focus-visible {
 .app__search-shell {
   position: relative;
   overflow: clip;
-  border-radius: var(--search-shell-radius-top) var(--search-shell-radius-top) var(--search-shell-radius-bottom)
-    var(--search-shell-radius-bottom);
+  border-radius: var(--search-shell-radius-top) var(--search-shell-radius-top)
+    var(--search-shell-radius-bottom) var(--search-shell-radius-bottom);
   background: #f7fafc;
   box-shadow: var(--shadow-card);
   padding-bottom: var(--search-shell-boundary-height);
