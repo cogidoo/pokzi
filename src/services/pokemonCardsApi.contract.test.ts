@@ -473,6 +473,153 @@ describe('fetchPokemonCards', () => {
     });
   });
 
+  it('falls back to tcgplayer normal pricing when no cardmarket price is available', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.endsWith('/en/cards/shared-6')) {
+        return Promise.resolve(
+          asResponse(
+            cardDetail(
+              'shared-6',
+              'en',
+              '103',
+              'Charmander',
+              '151',
+              [4],
+              null,
+              {
+                tcgplayer: {
+                  unit: 'USD',
+                  normal: {
+                    marketPrice: 4.6,
+                  },
+                },
+              },
+              {
+                normal: true,
+                holo: false,
+                reverse: false,
+              },
+            ),
+          ),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-6', 'en')).resolves.toMatchObject({
+      id: 'shared-6',
+      price: {
+        amount: 4.6,
+        currency: 'USD',
+        provider: 'tcgplayer',
+        label: 'TCGplayer',
+      },
+    });
+  });
+
+  it('uses tcgplayer holo pricing when the card only has a holo variant', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.endsWith('/en/cards/shared-7')) {
+        return Promise.resolve(
+          asResponse(
+            cardDetail(
+              'shared-7',
+              'en',
+              '104',
+              'Charizard',
+              '151',
+              [6],
+              null,
+              {
+                tcgplayer: {
+                  unit: 'USD',
+                  holo: {
+                    marketPrice: 14.2,
+                  },
+                },
+              },
+              {
+                normal: false,
+                holo: true,
+                reverse: false,
+              },
+            ),
+          ),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-7', 'en')).resolves.toMatchObject({
+      id: 'shared-7',
+      price: {
+        amount: 14.2,
+        currency: 'USD',
+        provider: 'tcgplayer',
+        label: 'TCGplayer',
+      },
+    });
+  });
+
+  it('uses tcgplayer reverse pricing when reverse is the only declared variant', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.endsWith('/en/cards/shared-8')) {
+        return Promise.resolve(
+          asResponse(
+            cardDetail(
+              'shared-8',
+              'en',
+              '105',
+              'Wartortle',
+              '151',
+              [8],
+              null,
+              {
+                tcgplayer: {
+                  unit: 'USD',
+                  reverse: {
+                    marketPrice: 6.8,
+                  },
+                },
+              },
+              {
+                normal: false,
+                holo: false,
+                reverse: true,
+              },
+            ),
+          ),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-8', 'en')).resolves.toMatchObject({
+      id: 'shared-8',
+      price: {
+        amount: 6.8,
+        currency: 'USD',
+        provider: 'tcgplayer',
+        label: 'TCGplayer',
+      },
+    });
+  });
+
   it('deduplicates paginated briefs across pages and keeps one aggregate entry', async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
       const url = requestUrl(input);
