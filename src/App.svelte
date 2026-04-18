@@ -474,7 +474,15 @@
 
     forceCompactSearchForKeyboard = shouldForceCompact;
 
-    if (!changed || shouldForceCompact) {
+    if (!changed) {
+      if (shouldForceCompact) {
+        queueCompactSearchAlignment(true);
+      }
+      return;
+    }
+
+    if (shouldForceCompact) {
+      queueCompactSearchAlignment(true);
       return;
     }
 
@@ -538,8 +546,10 @@
 
   /**
    * Keeps the compact shell visually pinned after the layout shrinks around the switch point.
+   *
+   * @param force - Allows alignment for keyboard-driven compact mode even without scroll-derived state.
    */
-  function queueCompactSearchAlignment() {
+  function queueCompactSearchAlignment(force = false) {
     if (compactAlignmentFrame !== 0) {
       return;
     }
@@ -547,7 +557,7 @@
     compactAlignmentFrame = window.requestAnimationFrame(() => {
       compactAlignmentFrame = 0;
 
-      if (!resultsScrolled) {
+      if (!resultsScrolled && !force) {
         return;
       }
 

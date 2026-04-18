@@ -409,6 +409,57 @@ describe('App', () => {
     expectExpandedSearchHeader(container);
   });
 
+  it('aligns the keyboard-compacted search shell to the top edge', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    setViewportSize(844, 390);
+    const visualViewport = installVisualViewport(844, 390);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    const searchShell = getSearchShell(container);
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+      });
+    const boundingRectSpy = vi
+      .spyOn(searchShell, 'getBoundingClientRect')
+      .mockReturnValue(rect(48, 320, 120));
+    const scrollBySpy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+
+    try {
+      await fireEvent.focus(screen.getByLabelText('Pokemon suchen'));
+      Object.assign(visualViewport, { width: 844, height: 240 });
+      visualViewport.dispatchEvent(new Event('resize'));
+      await Promise.resolve();
+
+      expectCompactSearchHeader(container);
+      expect(scrollBySpy).toHaveBeenCalledWith(0, 48);
+    } finally {
+      requestAnimationFrameSpy.mockRestore();
+      boundingRectSpy.mockRestore();
+      scrollBySpy.mockRestore();
+    }
+  });
+
   it('does not force compact mode for portrait keyboard-sized viewports', async () => {
     searchPokemonMock.mockResolvedValueOnce([
       {
