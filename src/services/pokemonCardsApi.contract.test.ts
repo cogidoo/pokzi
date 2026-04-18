@@ -25,6 +25,8 @@ function cardDetail(
   setName: string,
   dexId: number[] = [4],
   image?: string | null,
+  pricing?: unknown,
+  variants?: unknown,
 ) {
   return {
     id,
@@ -39,6 +41,8 @@ function cardDetail(
     },
     category: 'Pokémon',
     rarity: 'Häufig',
+    variants,
+    pricing,
   };
 }
 
@@ -314,6 +318,158 @@ describe('fetchPokemonCards', () => {
       },
       category: null,
       rarity: null,
+      price: null,
+    });
+  });
+
+  it('maps a compact preferred market price from the pricing payload', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.endsWith('/de/cards/shared-3')) {
+        return Promise.resolve(
+          asResponse(
+            cardDetail(
+              'shared-3',
+              'de',
+              '100',
+              'Glumanda',
+              '151',
+              [4],
+              null,
+              {
+                cardmarket: {
+                  unit: 'EUR',
+                  trend: 3.5,
+                  avg7: 3.3,
+                },
+                tcgplayer: {
+                  unit: 'USD',
+                  normal: {
+                    marketPrice: 4.2,
+                  },
+                },
+              },
+              {
+                normal: true,
+                holo: false,
+                reverse: false,
+              },
+            ),
+          ),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-3', 'de')).resolves.toMatchObject({
+      id: 'shared-3',
+      price: {
+        amount: 3.5,
+        currency: 'EUR',
+        provider: 'cardmarket',
+        label: 'Cardmarket',
+      },
+    });
+  });
+
+  it('prefers holo trend fallback chain when the card only has a holo variant', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.endsWith('/de/cards/shared-4')) {
+        return Promise.resolve(
+          asResponse(
+            cardDetail(
+              'shared-4',
+              'de',
+              '101',
+              'Glurak',
+              '151',
+              [6],
+              null,
+              {
+                cardmarket: {
+                  unit: 'EUR',
+                  trend: 5.5,
+                  'trend-holo': 12.4,
+                  'avg7-holo': 11.9,
+                },
+              },
+              {
+                normal: false,
+                holo: true,
+                reverse: false,
+              },
+            ),
+          ),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-4', 'de')).resolves.toMatchObject({
+      id: 'shared-4',
+      price: {
+        amount: 12.4,
+        currency: 'EUR',
+        provider: 'cardmarket',
+        label: 'Cardmarket',
+      },
+    });
+  });
+
+  it('falls back from missing trend to avg7 and avg30 for normal variants', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.endsWith('/de/cards/shared-5')) {
+        return Promise.resolve(
+          asResponse(
+            cardDetail(
+              'shared-5',
+              'de',
+              '102',
+              'Bisaknosp',
+              '151',
+              [2],
+              null,
+              {
+                cardmarket: {
+                  unit: 'EUR',
+                  avg7: 2.7,
+                  avg30: 2.4,
+                },
+              },
+              {
+                normal: true,
+                holo: false,
+                reverse: false,
+              },
+            ),
+          ),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-5', 'de')).resolves.toMatchObject({
+      id: 'shared-5',
+      price: {
+        amount: 2.7,
+        currency: 'EUR',
+        provider: 'cardmarket',
+        label: 'Cardmarket',
+      },
     });
   });
 
@@ -465,6 +621,7 @@ describe('fetchPokemonCards', () => {
             },
             category: 'Pokémon',
             rarity: 'Häufig',
+            price: null,
           },
         },
       },

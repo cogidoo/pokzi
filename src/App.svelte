@@ -206,6 +206,7 @@
               number: variant?.localId ?? visibleVariant.localId,
               imageUrl: variant?.image ?? null,
               imageLanguage: variant?.image ? language : null,
+              price: variant?.price ?? null,
             },
           ];
         }),
@@ -221,6 +222,7 @@
         setName: visibleVariant.set.name,
         number: visibleVariant.localId,
         imageUrl: resolvedImage.imageUrl,
+        price: visibleVariant.price,
       });
     }
 

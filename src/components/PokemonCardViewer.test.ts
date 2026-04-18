@@ -51,6 +51,29 @@ describe('PokemonCardViewer', () => {
     expect(screen.queryByText('Karte wird geladen...')).not.toBeInTheDocument();
   });
 
+  it('shows the current card price inside the existing modal metadata area', () => {
+    render(PokemonCardViewer, {
+      cards: [
+        {
+          ...cards[0],
+          price: {
+            amount: 12.5,
+            currency: 'EUR',
+            provider: 'cardmarket',
+            label: 'Cardmarket',
+          },
+        },
+      ],
+      currentIndex: 0,
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.getByText('Schwert & Schild')).toBeInTheDocument();
+    expect(screen.getByText('Nr. 001/202')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Preis laut Cardmarket: 12,50/u)).toBeInTheDocument();
+  });
+
   it('renders language controls, hides text labels, and switches language only for the current card', async () => {
     render(PokemonCardViewer, {
       cards: [

@@ -1,6 +1,11 @@
 import { fetchJson, isHttpStatusError } from './http/pokeApiClient';
 import { mapWithConcurrency, throwIfAborted } from './utils/async';
-import type { PokemonCard, PokemonCardAggregate, PokemonCardLanguage } from '../types/pokemonCards';
+import type {
+  PokemonCard,
+  PokemonCardAggregate,
+  PokemonCardLanguage,
+  PokemonCardPrice,
+} from '../types/pokemonCards';
 
 const TCGDEX_API = 'https://api.tcgdex.net/v2';
 const CARDS_PAGE_SIZE = 100;
@@ -37,6 +42,49 @@ interface TcgDexCardResponse {
   };
   category?: string | null;
   rarity?: string | null;
+  variants?: {
+    normal?: boolean;
+    reverse?: boolean;
+    holo?: boolean;
+    firstEdition?: boolean;
+  } | null;
+  pricing?: {
+    cardmarket?: TcgDexCardmarketPricing | null;
+    tcgplayer?: TcgDexTcgplayerPricing | null;
+  } | null;
+}
+
+/**
+ * Cardmarket market data embedded in one TCGdex card detail payload.
+ */
+interface TcgDexCardmarketPricing {
+  unit?: string | null;
+  avg?: number;
+  avg7?: number;
+  avg30?: number;
+  trend?: number;
+  'avg-holo'?: number;
+  'avg7-holo'?: number;
+  'avg30-holo'?: number;
+  'trend-holo'?: number;
+}
+
+/**
+ * One variant-specific TCGplayer price bucket.
+ */
+interface TcgDexTcgplayerVariantPricing {
+  marketPrice?: number;
+  midPrice?: number;
+}
+
+/**
+ * TCGplayer market data embedded in one TCGdex card detail payload.
+ */
+interface TcgDexTcgplayerPricing {
+  unit?: string | null;
+  normal?: TcgDexTcgplayerVariantPricing | null;
+  reverse?: TcgDexTcgplayerVariantPricing | null;
+  holo?: TcgDexTcgplayerVariantPricing | null;
 }
 
 /**
@@ -276,7 +324,142 @@ function mapCardResponse(card: TcgDexCardResponse, language: PokemonCardLanguage
     },
     category: card.category ?? null,
     rarity: card.rarity ?? null,
+    price: mapCardPrice(card.pricing, card.variants),
   };
+}
+
+/**
+ * Picks one compact price summary from the optional TCGdex pricing payload.
+ *
+ * Cardmarket is preferred for the German-first experience because it returns EUR.
+ * The selected Cardmarket fallback chain depends on the documented card variants.
+ * TCGplayer is used only when Cardmarket exposes no suitable value.
+ *
+ * @param pricing - Raw pricing payload from TCGdex.
+ * @param variants - Raw variant flags from TCGdex.
+ * @returns Compact UI-ready price summary or `null`.
+ */
+function mapCardPrice(
+  pricing: TcgDexCardResponse['pricing'],
+  variants: TcgDexCardResponse['variants'],
+): PokemonCardPrice | null {
+  const cardmarket = pricing?.cardmarket;
+  const preferredCardmarketAmounts = getPreferredCardmarketAmounts(cardmarket, variants);
+  const cardmarketAmount = firstNumber(...preferredCardmarketAmounts);
+  if (cardmarket && cardmarketAmount !== null) {
+    return {
+      amount: cardmarketAmount,
+      currency: cardmarket.unit ?? 'EUR',
+      provider: 'cardmarket',
+      label: 'Cardmarket',
+    };
+  }
+
+  const tcgplayer = pricing?.tcgplayer;
+  const preferredTcgplayerAmounts = getPreferredTcgplayerAmounts(tcgplayer, variants);
+  const tcgplayerAmount = firstNumber(...preferredTcgplayerAmounts);
+  if (tcgplayer && tcgplayerAmount !== null) {
+    return {
+      amount: tcgplayerAmount,
+      currency: tcgplayer.unit ?? 'USD',
+      provider: 'tcgplayer',
+      label: 'TCGplayer',
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Resolves the preferred Cardmarket amount chain for one card.
+ *
+ * Normal printings win when available because they are the most stable
+ * single-price summary for mixed cards that also have holo variants.
+ *
+ * @param cardmarket - Cardmarket provider payload.
+ * @param variants - Variant flags declared by the card payload.
+ * @returns Ordered numeric candidates for one compact UI summary.
+ */
+function getPreferredCardmarketAmounts(
+  cardmarket: TcgDexCardmarketPricing | null | undefined,
+  variants: TcgDexCardResponse['variants'],
+): (number | undefined)[] {
+  if (variants?.normal) {
+    const candidates: (number | undefined)[] = [
+      cardmarket?.trend,
+      cardmarket?.avg7,
+      cardmarket?.avg30,
+    ];
+    return candidates;
+  }
+
+  if (variants?.holo) {
+    const candidates: (number | undefined)[] = [
+      cardmarket?.['trend-holo'],
+      cardmarket?.['avg7-holo'],
+      cardmarket?.['avg30-holo'],
+    ];
+    return candidates;
+  }
+
+  const candidates: (number | undefined)[] = [
+    cardmarket?.trend,
+    cardmarket?.avg7,
+    cardmarket?.avg30,
+    cardmarket?.['trend-holo'],
+    cardmarket?.['avg7-holo'],
+    cardmarket?.['avg30-holo'],
+  ];
+  return candidates;
+}
+
+/**
+ * Resolves the preferred TCGplayer amount chain for one card.
+ *
+ * @param tcgplayer - TCGplayer provider payload.
+ * @param variants - Variant flags declared by the card payload.
+ * @returns Ordered numeric candidates for one compact UI summary.
+ */
+function getPreferredTcgplayerAmounts(
+  tcgplayer: TcgDexTcgplayerPricing | null | undefined,
+  variants: TcgDexCardResponse['variants'],
+): (number | undefined)[] {
+  if (variants?.normal) {
+    return [tcgplayer?.normal?.marketPrice, tcgplayer?.normal?.midPrice];
+  }
+
+  if (variants?.holo) {
+    return [tcgplayer?.holo?.marketPrice, tcgplayer?.holo?.midPrice];
+  }
+
+  if (variants?.reverse) {
+    return [tcgplayer?.reverse?.marketPrice, tcgplayer?.reverse?.midPrice];
+  }
+
+  return [
+    tcgplayer?.normal?.marketPrice,
+    tcgplayer?.normal?.midPrice,
+    tcgplayer?.holo?.marketPrice,
+    tcgplayer?.holo?.midPrice,
+    tcgplayer?.reverse?.marketPrice,
+    tcgplayer?.reverse?.midPrice,
+  ];
+}
+
+/**
+ * Returns the first finite numeric value from the candidate list.
+ *
+ * @param values - Ordered numeric candidates.
+ * @returns First finite number or `null`.
+ */
+function firstNumber(...values: (number | undefined)[]): number | null {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 /**

@@ -20,6 +20,28 @@ describe('PokemonCardTile', () => {
     expect(screen.getByText('Nr. 001/202')).toBeInTheDocument();
   });
 
+  it('shows a compact inline price chip inside the existing metadata area', () => {
+    render(PokemonCardTile, {
+      card: {
+        id: 'swsh1-002',
+        name: 'Glumanda',
+        setName: 'Schwert & Schild',
+        number: '002/202',
+        imageUrl: 'https://img/card.png',
+        price: {
+          amount: 12.5,
+          currency: 'EUR',
+          provider: 'cardmarket',
+          label: 'Cardmarket',
+        },
+      },
+    });
+
+    expect(screen.getByText('Schwert & Schild')).toBeInTheDocument();
+    expect(screen.getByText('Nr. 002/202')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Preis laut Cardmarket: 12,50/u)).toBeInTheDocument();
+  });
+
   it('shows fallback content when artwork is missing', () => {
     render(PokemonCardTile, {
       card: {

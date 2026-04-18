@@ -50,6 +50,31 @@ describe('PokemonCardsGallery', () => {
     expect(screen.getByText('Bild 🇬🇧')).toBeInTheDocument();
   });
 
+  it('includes the card price in the open label and renders it inline on the tile when available', () => {
+    render(PokemonCardsGallery, {
+      pokemonName: 'Glumanda',
+      cards: [
+        {
+          ...cards[0],
+          price: {
+            amount: 12.5,
+            currency: 'EUR',
+            provider: 'cardmarket',
+            label: 'Cardmarket',
+          },
+        },
+      ],
+      galleryState: 'success',
+    });
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Glumanda aus Schwert & Schild, Nr. 001/202, Preis 12,50 € öffnen',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Preis laut Cardmarket: 12,50/u)).toBeInTheDocument();
+  });
+
   it('does not show a text-language badge in the gallery when a fallback card is used', () => {
     render(PokemonCardsGallery, {
       pokemonName: 'Glumanda',

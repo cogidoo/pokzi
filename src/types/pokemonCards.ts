@@ -13,6 +13,16 @@ export interface PokemonCardSet {
 }
 
 /**
+ * Compact market price summary shown in the card gallery and viewer.
+ */
+export interface PokemonCardPrice {
+  amount: number;
+  currency: string;
+  provider: 'cardmarket' | 'tcgplayer';
+  label: string;
+}
+
+/**
  * Normalized Pokemon TCG card used by the detail-page cards feature.
  */
 export interface PokemonCard {
@@ -25,6 +35,7 @@ export interface PokemonCard {
   set: PokemonCardSet;
   category: string | null;
   rarity: string | null;
+  price?: PokemonCardPrice | null;
 }
 
 /**
@@ -45,6 +56,7 @@ export interface PokemonCardTileVariant {
   number: string;
   imageUrl: string | null;
   imageLanguage: PokemonCardLanguage | null;
+  price?: PokemonCardPrice | null;
 }
 
 /**
@@ -60,4 +72,5 @@ export interface PokemonCardTileData {
   setName: string;
   number: string;
   imageUrl: string | null;
+  price?: PokemonCardPrice | null;
 }

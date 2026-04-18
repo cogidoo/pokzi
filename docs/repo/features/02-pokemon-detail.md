@@ -94,7 +94,7 @@ Presentation rules:
 - Present cards as a horizontal, touch-friendly gallery with snap behavior rather than a dense list or table.
 - Support opening one card into a focused fullscreen viewer without leaving the Pokemon detail page.
 - Keep each card item visually focused on the real card artwork.
-- Show only lightweight supporting metadata per card, such as localized card name, set name, and card number.
+- Show only lightweight supporting metadata per card, such as localized card name, set name, card number, and one compact market price when available.
 - Keep the section exploratory and collectible in tone, but visually subordinate to the hero and evolution summary.
 - Keep German as the default card language context on the detail page.
 - Allow language switching only inside the fullscreen card viewer, not in the inline gallery.
@@ -221,6 +221,7 @@ Implementation notes:
 - Any previous/next controls must remain touch-safe, keyboard-reachable, and visually secondary to the card artwork.
 - Avoid pagination dots unless they materially improve orientation without adding noise.
 - Keep per-card metadata short enough that card images remain the strongest repeated pattern.
+- When a market price is available, integrate it into the existing inline metadata area instead of adding a separate price row, footer, or overlay.
 - Inline gallery images should load lazily so the section can appear before every card image has downloaded.
 - In the fullscreen viewer, support next/previous navigation with both explicit controls and horizontal swipe gestures on touch devices.
 - A card without an image should still open in the fullscreen viewer with a strong metadata fallback rather than a broken zoom state.
@@ -269,6 +270,7 @@ Implementation notes:
 - The page exposes an evolution summary with the current stage and visual navigation for all visible chain items when available.
 - When card data in at least one supported language is available, the page shows a cards gallery after the key facts section.
 - The cards gallery presents localized card artwork and short supporting metadata in a horizontal touch-friendly format.
+- When available, each visible card price appears inline within the existing card metadata on both the gallery tile and the fullscreen viewer.
 - Tapping a card opens a fullscreen viewer with clear close, previous, and next controls.
 - The fullscreen viewer supports touch-friendly horizontal swipe navigation on iPad widths.
 - The fullscreen viewer exposes a clear language switch for German, English, and Japanese cards when those languages are available.

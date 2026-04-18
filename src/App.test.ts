@@ -206,6 +206,7 @@ function cardFixture(overrides: Partial<PokemonCard> = {}): PokemonCard {
     },
     category: 'Pokémon',
     rarity: 'Häufig',
+    price: null,
     ...overrides,
   };
 }
@@ -1481,6 +1482,40 @@ describe('App', () => {
     expect(screen.getByRole('radiogroup', { name: 'Sprache der Karte' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Deutsch anzeigen' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Japanisch anzeigen' })).toBeEnabled();
+  });
+
+  it('shows the visible card price inline in the gallery and modal', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockResolvedValueOnce([
+      aggregatedCardFixture('sv03.5-004', {
+        de: cardFixture({
+          name: 'Pikachu',
+          dexIds: [25],
+          price: {
+            amount: 12.5,
+            currency: 'EUR',
+            provider: 'cardmarket',
+            label: 'Cardmarket',
+          },
+        }),
+      }),
+    ]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Preis laut Cardmarket: 12,50/u)).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: /Preis 12,50/u }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Karte Pikachu' });
+    expect(within(dialog).getByLabelText(/Preis laut Cardmarket: 12,50/u)).toBeInTheDocument();
   });
 
   it('switches a card fully to English when only the English variant has an image', async () => {

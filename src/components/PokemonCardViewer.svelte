@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { PokemonCardLanguage, PokemonCardTileData } from '../types/pokemonCards';
+  import type {
+    PokemonCardLanguage,
+    PokemonCardPrice,
+    PokemonCardTileData,
+  } from '../types/pokemonCards';
 
   /**
    * Props for the fullscreen card viewer overlay.
@@ -203,6 +207,7 @@
       setName: variant.setName,
       number: variant.number,
       imageUrl: variant.imageUrl,
+      price: variant.price ?? null,
     };
   }
 
@@ -225,6 +230,31 @@
    */
   function getCardNumberLabel(number: string): string {
     return `Nr. ${number}`;
+  }
+
+  /**
+   * Formats one compact localized market price.
+   *
+   * @param price - Current card price summary.
+   * @returns Display label such as `0,10 €`.
+   */
+  function formatPriceAmount(price: PokemonCardPrice): string {
+    return price.amount.toLocaleString('de-DE', {
+      style: 'currency',
+      currency: price.currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  /**
+   * Builds an accessible price label with provider context.
+   *
+   * @param price - Current card price summary.
+   * @returns Spoken price label for assistive tech.
+   */
+  function getPriceLabel(price: PokemonCardPrice): string {
+    return `Preis laut ${price.label}: ${formatPriceAmount(price)}`;
   }
 
   /**
@@ -498,6 +528,11 @@
             <span>{viewerCard.setName}</span>
             <span aria-hidden="true">•</span>
             <span>{cardNumberLabel}</span>
+            {#if viewerCard.price}
+              <span class="cards-viewer__price" aria-label={getPriceLabel(viewerCard.price)}>
+                {formatPriceAmount(viewerCard.price)}
+              </span>
+            {/if}
           </p>
         </div>
       </article>
@@ -760,6 +795,19 @@
     justify-content: center;
     gap: 8px;
     color: rgba(239, 244, 255, 0.9);
+  }
+
+  .cards-viewer__price {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.9rem;
+    padding: 0.16rem 0.72rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    color: #ffffff;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   @media (max-width: 639px) {

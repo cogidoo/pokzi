@@ -179,7 +179,18 @@
    * @returns Localized aria-label for opening the fullscreen viewer.
    */
   function getOpenLabel(card: PokemonCardTileData): string {
-    return `${card.name} aus ${card.setName}, Nr. ${card.number} öffnen`;
+    const parts = [`${card.name} aus ${card.setName}`, `Nr. ${card.number}`];
+    if (card.price) {
+      const amount = card.price.amount.toLocaleString('de-DE', {
+        style: 'currency',
+        currency: card.price.currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      parts.push(`Preis ${amount}`);
+    }
+
+    return `${parts.join(', ')} öffnen`;
   }
 
   /**

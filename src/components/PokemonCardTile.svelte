@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { PokemonCardTileData } from '../types/pokemonCards';
+  import type { PokemonCardPrice, PokemonCardTileData } from '../types/pokemonCards';
 
   /**
    * Props for one TCG card tile.
@@ -41,6 +41,31 @@
    */
   function formatNumber(number: string): string {
     return `Nr. ${number}`;
+  }
+
+  /**
+   * Formats one compact localized market price label.
+   *
+   * @param price - Current card price summary.
+   * @returns Display label such as `Cardmarket 0,10 €`.
+   */
+  function formatPriceAmount(price: PokemonCardPrice): string {
+    return price.amount.toLocaleString('de-DE', {
+      style: 'currency',
+      currency: price.currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  /**
+   * Builds an accessible price label with provider context.
+   *
+   * @param price - Current card price summary.
+   * @returns Spoken price label for assistive tech.
+   */
+  function getPriceLabel(price: PokemonCardPrice): string {
+    return `Preis laut ${price.label}: ${formatPriceAmount(price)}`;
   }
 
   /**
@@ -172,6 +197,11 @@
       <span class="cards-tile__set">{card.setName}</span>
       <span class="cards-tile__separator" aria-hidden="true">•</span>
       <span class="cards-tile__number">{formatNumber(card.number)}</span>
+      {#if card.price}
+        <span class="cards-tile__meta-price" aria-label={getPriceLabel(card.price)}>
+          {formatPriceAmount(card.price)}
+        </span>
+      {/if}
     </p>
   </div>
 </article>
@@ -300,6 +330,19 @@
   .cards-tile__set,
   .cards-tile__number {
     min-width: 0;
+  }
+
+  .cards-tile__meta-price {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
+    padding: 0.16rem 0.62rem;
+    border-radius: 999px;
+    border: 1px solid rgba(115, 143, 193, 0.22);
+    background: rgba(255, 255, 255, 0.82);
+    color: #274060;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   @media (min-width: 720px) {
