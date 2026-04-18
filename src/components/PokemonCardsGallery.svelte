@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { PokemonCardTileData } from '../types/pokemonCards';
+  import type { PokemonCardLanguage, PokemonCardTileData } from '../types/pokemonCards';
   import PokemonCardTile from './PokemonCardTile.svelte';
   import PokemonCardViewer from './PokemonCardViewer.svelte';
 
@@ -16,6 +16,7 @@
     pokemonName: string;
     cards?: PokemonCardTileData[];
     galleryState?: PokemonCardsGalleryState;
+    availableLanguages?: PokemonCardLanguage[];
     emptyMessage?: string;
     errorMessage?: string;
     onRetry?: (() => void) | null;
@@ -25,34 +26,48 @@
     pokemonName,
     cards = [],
     galleryState = 'success',
-    emptyMessage = 'Dazu wurden gerade keine deutschen Karten gefunden.',
+    availableLanguages = [],
+    emptyMessage = 'Dazu wurden gerade keine Karten gefunden.',
     errorMessage = 'Die Karten konnten gerade nicht geladen werden.',
     onRetry = null,
   }: Props = $props();
 
   let viewport = $state<HTMLDivElement | null>(null);
   let prefersReducedMotion = $state(false);
-  let activeCardIndex = $state<number | null>(null);
+  let activeCardId = $state<string | null>(null);
   const orderedCards = $derived.by(() => sortCards(cards));
   const cardCount = $derived(orderedCards.length);
+  const activeCardIndex = $derived.by(() => {
+    if (activeCardId === null) {
+      return null;
+    }
+
+    const index = orderedCards.findIndex((card) => card.id === activeCardId);
+    return index === -1 ? null : index;
+  });
   const showControls = $derived(
     cardCount > 1 && (galleryState === 'success' || galleryState === 'refreshing'),
   );
   const isBusy = $derived(galleryState === 'loading' || galleryState === 'refreshing');
-
+  const showCardCount = $derived(
+    cardCount > 0 && (galleryState === 'success' || galleryState === 'refreshing'),
+  );
   $effect(() => {
-    if (activeCardIndex === null) {
+    if (activeCardId === null) {
       return;
     }
 
     if (cardCount === 0) {
-      activeCardIndex = null;
+      activeCardId = null;
       return;
     }
+  });
 
-    if (activeCardIndex >= cardCount) {
-      activeCardIndex = cardCount - 1;
+  $effect(() => {
+    if (galleryState !== 'success' && galleryState !== 'refreshing') {
+      return;
     }
+    resetGalleryPosition();
   });
 
   /**
@@ -75,6 +90,26 @@
   }
 
   /**
+   * Brings the gallery viewport back to the first card/marker.
+   */
+  function resetGalleryPosition() {
+    const galleryViewport = viewport;
+    if (!galleryViewport) {
+      return;
+    }
+
+    if (typeof galleryViewport.scrollTo === 'function') {
+      galleryViewport.scrollTo({
+        left: 0,
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
+      return;
+    }
+
+    galleryViewport.scrollLeft = 0;
+  }
+
+  /**
    * Forwards the local retry intent to the parent.
    */
   function retry() {
@@ -82,15 +117,43 @@
   }
 
   /**
-   * Keeps image-backed cards first so the gallery starts with the strongest visual cards.
+   * Keeps German cards first, then English-only cards, then Japanese-only cards.
    *
    * @param sourceCards - Raw gallery cards from the current detail view.
-   * @returns Stable sorted card list with missing-image entries moved to the end.
+   * @returns Stable sorted card list with image-backed cards preferred inside one language bucket.
    */
   function sortCards(sourceCards: PokemonCardTileData[]): PokemonCardTileData[] {
-    return [...sourceCards].sort(
-      (left, right) => Number(right.imageUrl !== null) - Number(left.imageUrl !== null),
-    );
+    return [...sourceCards].sort((left, right) => {
+      const languagePriority = getLanguagePriority(left) - getLanguagePriority(right);
+      if (languagePriority !== 0) {
+        return languagePriority;
+      }
+
+      const imagePriority = Number(right.imageUrl !== null) - Number(left.imageUrl !== null);
+      if (imagePriority !== 0) {
+        return imagePriority;
+      }
+
+      return left.number.localeCompare(right.number, 'de');
+    });
+  }
+
+  /**
+   * Groups cards by their visible text language for the fixed gallery order.
+   *
+   * @param card - Visible card tile.
+   * @returns Numeric priority for sorting.
+   */
+  function getLanguagePriority(card: PokemonCardTileData): number {
+    if (card.language === 'de') {
+      return 0;
+    }
+
+    if (card.language === 'en') {
+      return 1;
+    }
+
+    return 2;
   }
 
   /**
@@ -99,14 +162,14 @@
    * @param index - Card index inside the ordered gallery list.
    */
   function openCard(index: number) {
-    activeCardIndex = index;
+    activeCardId = orderedCards[index]?.id ?? null;
   }
 
   /**
    * Closes the fullscreen viewer.
    */
   function closeViewer() {
-    activeCardIndex = null;
+    activeCardId = null;
   }
 
   /**
@@ -125,7 +188,7 @@
    * @param index - Ordered card index chosen inside the viewer.
    */
   function selectViewerCard(index: number) {
-    activeCardIndex = index;
+    activeCardId = orderedCards[index]?.id ?? null;
   }
 
   onMount(() => {
@@ -156,9 +219,16 @@
   <div class="detail__section-head cards-gallery__head">
     <div class="cards-gallery__title-row">
       <h2 class="detail__section-title">Karten</h2>
-      {#if galleryState === 'refreshing'}
-        <span class="cards-gallery__badge" aria-live="polite">Wird aktualisiert</span>
-      {/if}
+      <div class="cards-gallery__head-tools">
+        {#if showCardCount}
+          <span class="cards-gallery__count" aria-label={`${String(cardCount)} Karten gefunden`}>
+            {cardCount}
+          </span>
+        {/if}
+        {#if galleryState === 'refreshing'}
+          <span class="cards-gallery__badge" aria-live="polite">Wird aktualisiert</span>
+        {/if}
+      </div>
     </div>
   </div>
 
@@ -245,6 +315,7 @@
   <PokemonCardViewer
     cards={orderedCards}
     currentIndex={activeCardIndex}
+    {availableLanguages}
     onClose={closeViewer}
     onSelect={selectViewerCard}
   />
@@ -259,14 +330,23 @@
   }
 
   .cards-gallery__head {
-    gap: 8px;
+    gap: 0;
   }
 
   .cards-gallery__title-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 12px;
+  }
+
+  .cards-gallery__head-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
   }
 
   .cards-gallery__badge {
@@ -283,9 +363,28 @@
     white-space: nowrap;
   }
 
+  .cards-gallery__count {
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0 0.65rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #edf4ff 0%, #dfeefe 100%);
+    border: 1px solid #c9dcf3;
+    color: #244c72;
+    font-size: 0.92rem;
+    font-weight: 900;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      0 8px 16px rgba(53, 81, 126, 0.08);
+  }
+
   .cards-gallery__shell {
     position: relative;
     min-width: 0;
+    display: block;
   }
 
   .cards-gallery__viewport {

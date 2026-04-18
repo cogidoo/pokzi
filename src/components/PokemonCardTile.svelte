@@ -17,6 +17,21 @@
   const metaId = $derived.by(() => `card-meta-${card.id}`);
   let artboard = $state<HTMLDivElement | null>(null);
   let shouldLoadImage = $state(false);
+  let imageLoaded = $state(false);
+  let lastImageKey = $state('');
+
+  $effect(() => {
+    const nextImageKey = `${card.id}:${card.imageUrl ?? 'none'}`;
+    if (lastImageKey === nextImageKey) {
+      return;
+    }
+
+    lastImageKey = nextImageKey;
+    imageLoaded = false;
+    if (card.imageUrl === null) {
+      imageLoaded = false;
+    }
+  });
 
   /**
    * Builds a compact display number, preserving the source value.
@@ -26,6 +41,54 @@
    */
   function formatNumber(number: string): string {
     return `Nr. ${number}`;
+  }
+
+  /**
+   * Returns a visible flag marker for one image language.
+   *
+   * @param language - Language used by the currently shown card image.
+   * @returns Flag emoji for the badge.
+   */
+  function getLanguageFlag(language: PokemonCardTileData['language']): string {
+    if (language === 'de') {
+      return '🇩🇪';
+    }
+
+    if (language === 'en') {
+      return '🇬🇧';
+    }
+
+    if (language === 'ja') {
+      return '🇯🇵';
+    }
+
+    return '🏳️';
+  }
+
+  /**
+   * Resolves the visible image-fallback flag safely for template use.
+   *
+   * @param cardData - Current tile data.
+   * @returns Flag for the image language or a neutral marker.
+   */
+  function getImageLanguageFlag(cardData: PokemonCardTileData): string {
+    return getLanguageFlag(cardData.imageLanguage ?? undefined);
+  }
+
+  /**
+   * Detects whether the visible card art currently comes from another language than the text.
+   *
+   * @param cardData - Current tile data.
+   * @returns True when the image uses a fallback language.
+   */
+  function hasImageLanguageFallback(cardData: PokemonCardTileData): boolean {
+    return (
+      cardData.imageUrl !== null &&
+      cardData.language !== undefined &&
+      cardData.imageLanguage !== null &&
+      cardData.imageLanguage !== undefined &&
+      cardData.imageLanguage !== cardData.language
+    );
   }
 
   onMount(() => {
@@ -54,6 +117,21 @@
       observer.disconnect();
     };
   });
+
+  /**
+   * Marks the inline card image as ready once the browser finished loading it.
+   */
+  function handleImageLoad() {
+    imageLoaded = true;
+  }
+
+  /**
+   * Falls back to the tile placeholder when the image cannot be shown.
+   */
+  function handleImageError() {
+    shouldLoadImage = false;
+    imageLoaded = false;
+  }
 </script>
 
 <article
@@ -63,7 +141,17 @@
 >
   <div class="cards-tile__artboard" bind:this={artboard}>
     {#if hasImage && shouldLoadImage}
-      <img class="cards-tile__image" src={card.imageUrl} alt={card.name} loading="lazy" />
+      <img
+        class={`cards-tile__image ${imageLoaded ? '' : 'cards-tile__image--loading'}`}
+        src={card.imageUrl}
+        alt={card.name}
+        loading="lazy"
+        onload={handleImageLoad}
+        onerror={handleImageError}
+      />
+      {#if !imageLoaded}
+        <div class="cards-tile__image-placeholder" aria-hidden="true"></div>
+      {/if}
     {:else if hasImage}
       <div class="cards-tile__image-placeholder" aria-hidden="true"></div>
     {:else}
@@ -75,6 +163,11 @@
 
   <div class="cards-tile__content">
     <h3 class="cards-tile__name" id={titleId}>{card.name}</h3>
+    {#if hasImageLanguageFallback(card)}
+      <p class="cards-tile__badge" aria-label="Kartenbild mit Sprach-Fallback">
+        Bild {getImageLanguageFlag(card)}
+      </p>
+    {/if}
     <p class="cards-tile__meta" id={metaId}>
       <span class="cards-tile__set">{card.setName}</span>
       <span class="cards-tile__separator" aria-hidden="true">•</span>
@@ -129,6 +222,11 @@
     height: 100%;
     object-fit: contain;
     display: block;
+    transition: opacity 160ms ease;
+  }
+
+  .cards-tile__image--loading {
+    opacity: 0;
   }
 
   .cards-tile__image-placeholder {
@@ -177,6 +275,22 @@
     flex-wrap: wrap;
     gap: 0.35rem;
     min-width: 0;
+  }
+
+  .cards-tile__badge {
+    margin: 0;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.8rem;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #fff3cf 0%, #ffe5a8 100%);
+    color: #704c06;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
   }
 
   .cards-tile__separator {

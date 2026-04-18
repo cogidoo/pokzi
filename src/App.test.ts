@@ -1,15 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
-import type { PokemonCard } from './types/pokemonCards';
+import type { PokemonCard, PokemonCardAggregate, PokemonCardLanguage } from './types/pokemonCards';
 
 type SearchPokemonFn = (query: string, signal?: AbortSignal) => Promise<PokemonSearchResult[]>;
 type FetchPokemonDetailFn = (id: number, signal?: AbortSignal) => Promise<PokemonDetail | null>;
-type FetchPokemonCardsFn = (
-  dexId: number,
-  germanName: string,
-  signal?: AbortSignal,
-) => Promise<PokemonCard[]>;
+type FetchPokemonCardsFn = (dexId: number, signal?: AbortSignal) => Promise<PokemonCardAggregate[]>;
 const searchPokemonMock = vi.fn<SearchPokemonFn>();
 const fetchPokemonDetailMock = vi.fn<FetchPokemonDetailFn>();
 const fetchPokemonCardsMock = vi.fn<FetchPokemonCardsFn>();
@@ -25,8 +21,8 @@ vi.mock('./services/pokemonApi', () => ({
 }));
 
 vi.mock('./services/pokemonCardsApi', () => ({
-  fetchPokemonCards: (dexId: number, germanName: string, signal?: AbortSignal) =>
-    fetchPokemonCardsMock(dexId, germanName, signal),
+  fetchPokemonCards: (dexId: number, signal?: AbortSignal) => fetchPokemonCardsMock(dexId, signal),
+  SUPPORTED_CARD_LANGUAGES: ['de', 'en', 'ja'],
 }));
 
 import App from './App.svelte';
@@ -144,6 +140,7 @@ function detailFixture(overrides: Partial<PokemonDetail> = {}): PokemonDetail {
 function cardFixture(overrides: Partial<PokemonCard> = {}): PokemonCard {
   return {
     id: 'sv03.5-004',
+    language: 'de',
     name: 'Glumanda',
     localId: '004',
     image: 'https://img/card-glumanda.png',
@@ -156,6 +153,16 @@ function cardFixture(overrides: Partial<PokemonCard> = {}): PokemonCard {
     category: 'Pokémon',
     rarity: 'Häufig',
     ...overrides,
+  };
+}
+
+function aggregatedCardFixture(
+  id: string,
+  languages: Partial<Record<PokemonCardLanguage, PokemonCard>>,
+): PokemonCardAggregate {
+  return {
+    id,
+    languages,
   };
 }
 
@@ -228,6 +235,12 @@ describe('App', () => {
   it('shows initial empty-state guidance', () => {
     render(App);
     expect(screen.getByText('Suche starten')).toBeInTheDocument();
+  });
+
+  it('does not render the cards gallery before a detail route starts loading cards', () => {
+    render(App);
+
+    expect(screen.queryByRole('heading', { name: 'Karten' })).not.toBeInTheDocument();
   });
 
   it('does not hit API for invalid short text query', async () => {
@@ -1072,7 +1085,11 @@ describe('App', () => {
       },
     });
 
-    fetchPokemonCardsMock.mockResolvedValueOnce([cardFixture({ name: 'Pikachu', dexIds: [25] })]);
+    fetchPokemonCardsMock.mockResolvedValueOnce([
+      aggregatedCardFixture('sv03.5-004', {
+        de: cardFixture({ name: 'Pikachu', dexIds: [25] }),
+      }),
+    ]);
 
     render(App);
 
@@ -1110,7 +1127,7 @@ describe('App', () => {
     expect(within(factsRegion).getByText('Größe')).toBeInTheDocument();
     expect(within(factsRegion).getByText('Gewicht')).toBeInTheDocument();
     expect(within(factsRegion).getByText('Kategorie')).toBeInTheDocument();
-    expect(fetchPokemonCardsMock).toHaveBeenCalledWith(25, 'Pikachu', expect.any(AbortSignal));
+    expect(fetchPokemonCardsMock).toHaveBeenCalledWith(25, expect.any(AbortSignal));
     expect(screen.getByRole('heading', { level: 2, name: 'Karten' })).toBeInTheDocument();
   });
 
@@ -1128,10 +1145,126 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Dazu wurden gerade keine Karten gefunden.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Pikachu' })).toBeInTheDocument();
+  });
+
+  it('keeps the gallery German-first and lets children switch languages only in the modal', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockResolvedValueOnce([
+      aggregatedCardFixture('sv03.5-004', {
+        en: cardFixture({ language: 'en', name: 'Pikachu', dexIds: [25] }),
+        ja: cardFixture({ language: 'ja', name: 'ピカチュウ', dexIds: [25] }),
+      }),
+    ]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Pikachu aus 151, Nr. 004 öffnen' }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('radiogroup', { name: 'Karten-Sprache' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Deutsch zuerst. Mehr Sprachen gibt es in der großen Kartenansicht.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Karten-Gruppen')).not.toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Pikachu aus 151, Nr. 004 öffnen' }));
+
+    expect(screen.getByRole('radiogroup', { name: 'Sprache der Karte' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Deutsch anzeigen' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Japanisch anzeigen' })).toBeEnabled();
+  });
+
+  it('switches a card fully to English when only the English variant has an image', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockResolvedValueOnce([
+      aggregatedCardFixture('sv03.5-004', {
+        de: cardFixture({ name: 'Pikachu', image: null, dexIds: [25] }),
+        en: cardFixture({
+          language: 'en',
+          name: 'Pikachu',
+          image: 'https://img/card-pikachu-en.png',
+          dexIds: [25],
+        }),
+      }),
+    ]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Pikachu aus 151, Nr. 004 öffnen' }),
+      ).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Pikachu aus 151, Nr. 004 öffnen' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Karte Pikachu' });
+    expect(within(dialog).getByRole('radio', { name: 'Deutsch anzeigen' })).toBeDisabled();
+    expect(within(dialog).getByRole('radio', { name: 'Englisch anzeigen' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(within(dialog).getByRole('img', { name: 'Pikachu' })).toHaveAttribute(
+      'src',
+      'https://img/card-pikachu-en.png',
+    );
+  });
+
+  it('keeps cards without any image selectable per text language in the modal', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockResolvedValueOnce([
+      aggregatedCardFixture('sv03.5-004', {
+        de: cardFixture({ name: 'Pikachu', image: null, dexIds: [25] }),
+        en: cardFixture({ language: 'en', name: 'Pikachu', image: null, dexIds: [25] }),
+      }),
+    ]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Pikachu aus 151, Nr. 004 öffnen' }),
+      ).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Pikachu aus 151, Nr. 004 öffnen' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Karte Pikachu' });
+    expect(within(dialog).getByRole('radio', { name: 'Deutsch anzeigen' })).toBeEnabled();
+    expect(within(dialog).getByRole('radio', { name: 'Englisch anzeigen' })).toBeEnabled();
+  });
+
+  it('ignores empty card aggregates without localized variants', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockResolvedValueOnce([aggregatedCardFixture('empty-1', {})]);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(fetchPokemonCardsMock).toHaveBeenCalledWith(25, expect.any(AbortSignal));
+    });
+    await vi.runAllTimersAsync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Dazu wurden gerade keine Karten gefunden.')).toBeInTheDocument();
+    });
   });
 
   it('keeps cards failure local and retries only the cards section', async () => {
@@ -1142,7 +1275,11 @@ describe('App', () => {
         isSearchPokemonError: true,
         code: 'server',
       })
-      .mockResolvedValueOnce([cardFixture({ name: 'Pikachu', dexIds: [25] })]);
+      .mockResolvedValueOnce([
+        aggregatedCardFixture('sv03.5-004', {
+          de: cardFixture({ name: 'Pikachu', dexIds: [25] }),
+        }),
+      ]);
 
     render(App);
 
@@ -1199,8 +1336,25 @@ describe('App', () => {
     });
   });
 
+  it('falls back to generic copy for SearchPokemonError cards errors without specialized mapping', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValue(detailFixture());
+    fetchPokemonCardsMock.mockRejectedValueOnce({
+      isSearchPokemonError: true,
+      code: 'network',
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Die Karten konnten gerade nicht geladen werden.'),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('ignores stale cards responses after switching to another detail', async () => {
-    const staleCardsPending = deferred<PokemonCard[]>();
+    const staleCardsPending = deferred<PokemonCardAggregate[]>();
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture()).mockResolvedValueOnce(
       detailFixture({
@@ -1235,13 +1389,15 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Raichu' })).toBeInTheDocument();
     });
 
-    staleCardsPending.resolve([cardFixture({ name: 'Veraltete Karte', dexIds: [25] })]);
+    staleCardsPending.resolve([
+      aggregatedCardFixture('stale-1', {
+        de: cardFixture({ id: 'stale-1', name: 'Veraltete Karte', dexIds: [25] }),
+      }),
+    ]);
     await Promise.resolve();
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Dazu wurden gerade keine deutschen Karten gefunden.'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Dazu wurden gerade keine Karten gefunden.')).toBeInTheDocument();
     });
     expect(screen.queryByText('Veraltete Karte')).not.toBeInTheDocument();
   });
@@ -1250,8 +1406,8 @@ describe('App', () => {
     window.history.pushState({}, '', '/#/pokemon/25');
     fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
     fetchPokemonCardsMock.mockImplementationOnce(
-      (_dexId: number, _germanName: string, signal?: AbortSignal) =>
-        new Promise<PokemonCard[]>((_, reject) => {
+      (_dexId: number, signal?: AbortSignal) =>
+        new Promise<PokemonCardAggregate[]>((_, reject) => {
           signal?.addEventListener('abort', () => {
             reject(new DOMException('The operation was aborted.', 'AbortError'));
           });
@@ -1265,6 +1421,25 @@ describe('App', () => {
     });
 
     expect(unmount).not.toThrow();
+  });
+
+  it('swallows abort-style cards errors without showing a local error message', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockResolvedValueOnce(detailFixture());
+    fetchPokemonCardsMock.mockRejectedValueOnce(new DOMException('Abgebrochen', 'AbortError'));
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Karten' })).toBeInTheDocument();
+    });
+
+    await vi.runAllTimersAsync();
+
+    expect(screen.getByLabelText('Karten werden geladen')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Die Karten konnten gerade nicht geladen werden.'),
+    ).not.toBeInTheDocument();
   });
 
   it('navigates to adjacent pokemon from evolution tiles', async () => {
@@ -1953,6 +2128,23 @@ describe('App', () => {
       expect(
         screen.getByText(
           'Der Pokemon-Server antwortet gerade nicht richtig. Bitte versuche es erneut.',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to generic copy for SearchPokemonError detail errors without specialized mapping', async () => {
+    window.history.pushState({}, '', '/#/pokemon/25');
+    fetchPokemonDetailMock.mockRejectedValueOnce({
+      isSearchPokemonError: true,
+      code: 'network',
+    });
+    render(App);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Die Pokemon-Details konnten gerade nicht geladen werden. Bitte versuche es erneut.',
         ),
       ).toBeInTheDocument();
     });

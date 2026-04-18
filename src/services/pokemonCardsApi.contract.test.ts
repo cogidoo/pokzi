@@ -1,378 +1,418 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchPokemonCards } from './pokemonCardsApi';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fetchPokemonCardByIdInLanguage, fetchPokemonCards } from './pokemonCardsApi';
 
-function asResponse(body: unknown, ok = true, status = 200): Response {
-  return {
-    ok,
-    status,
-    json: vi.fn().mockResolvedValue(body),
-  } as unknown as Response;
-}
-
-function inputToUrl(input: unknown): string {
+function requestUrl(input: RequestInfo | URL): string {
   if (typeof input === 'string') {
     return input;
   }
 
-  if (input instanceof URL) {
-    return input.toString();
-  }
+  return input instanceof URL ? input.toString() : input.url;
+}
 
-  if (
-    input &&
-    typeof input === 'object' &&
-    'url' in input &&
-    typeof (input as { url: unknown }).url === 'string'
-  ) {
-    return (input as { url: string }).url;
-  }
-
-  throw new Error('Unexpected fetch input type');
+function asResponse(body: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+    ...init,
+  });
 }
 
 function cardDetail(
   id: string,
+  language: string,
   localId: string,
   name: string,
   setName: string,
   dexId: number[] = [4],
+  image?: string | null,
 ) {
   return {
     id,
     localId,
     name,
-    image: `https://assets.tcgdex.net/de/swsh/base/${localId}`,
+    image,
     dexId,
     set: {
-      id: 'base',
+      id: 'sv03.5',
       name: setName,
-      logo: 'https://assets.tcgdex.net/de/swsh/base/logo',
+      logo: `https://assets.tcgdex.net/${language}/sv/sv03.5/logo`,
     },
     category: 'Pokémon',
-    rarity: 'Common',
+    rarity: 'Häufig',
   };
 }
 
-describe('pokemonCardsApi', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn());
-  });
-
+describe('fetchPokemonCards', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.restoreAllMocks();
   });
 
-  it('fetches german cards by German name search and verifies the dex id on detail payloads', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
+  it('aggregates localized card lists by stable card id', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
 
       if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        const parsed = new URL(url);
-        expect(parsed.searchParams.get('name')).toBe('Glumanda');
-        expect(parsed.searchParams.get('pagination:page')).toBe('1');
+        expect(url).toContain('dexId=4');
+        return Promise.resolve(asResponse([{ id: 'shared-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        expect(url).toContain('dexId=4');
+        return Promise.resolve(asResponse([{ id: 'shared-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        expect(url).toContain('dexId=4');
+        return Promise.resolve(asResponse([{ id: 'ja-only-1' }]));
+      }
+
+      if (url.endsWith('/de/cards/shared-1')) {
         return Promise.resolve(
-          asResponse([{ id: 'base-1' }, { id: 'base-2' }, { id: 'base-wrong-dex' }]),
+          asResponse(
+            cardDetail(
+              'shared-1',
+              'de',
+              '004',
+              'Glumanda',
+              '151',
+              [4],
+              'https://assets.tcgdex.net/de/sv/sv03.5/004',
+            ),
+          ),
         );
       }
 
-      if (url.endsWith('/de/cards/base-1')) {
-        return Promise.resolve(asResponse(cardDetail('base-1', '001', 'Glumanda', 'Basis Set')));
-      }
-
-      if (url.endsWith('/de/cards/base-2')) {
-        return Promise.resolve(asResponse(cardDetail('base-2', '002', 'Glumanda', 'Jungle')));
-      }
-
-      if (url.endsWith('/de/cards/base-wrong-dex')) {
+      if (url.endsWith('/en/cards/shared-1')) {
         return Promise.resolve(
-          asResponse(cardDetail('base-wrong-dex', '999', 'Glumanda', 'Promo', [999])),
+          asResponse(
+            cardDetail(
+              'shared-1',
+              'en',
+              '004',
+              'Charmander',
+              '151',
+              [4],
+              'https://assets.tcgdex.net/en/sv/sv03.5/004',
+            ),
+          ),
         );
       }
 
-      return Promise.resolve(asResponse({}, false, 404));
+      if (url.endsWith('/ja/cards/ja-only-1')) {
+        return Promise.resolve(
+          asResponse(
+            cardDetail(
+              'ja-only-1',
+              'ja',
+              '004',
+              'ヒトカゲ',
+              '151',
+              [4],
+              'https://assets.tcgdex.net/ja/SV/SV2a/004',
+            ),
+          ),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
     });
 
-    const cards = await fetchPokemonCards(4, 'Glumanda');
+    vi.stubGlobal('fetch', fetchMock);
 
-    expect(cards).toEqual([
-      {
-        id: 'base-1',
-        name: 'Glumanda',
-        localId: '001',
-        image: 'https://assets.tcgdex.net/de/swsh/base/001/low.webp',
-        dexIds: [4],
-        set: {
-          id: 'base',
-          name: 'Basis Set',
-          logo: 'https://assets.tcgdex.net/de/swsh/base/logo',
-        },
-        category: 'Pokémon',
-        rarity: 'Common',
-      },
-      {
-        id: 'base-2',
-        name: 'Glumanda',
-        localId: '002',
-        image: 'https://assets.tcgdex.net/de/swsh/base/002/low.webp',
-        dexIds: [4],
-        set: {
-          id: 'base',
-          name: 'Jungle',
-          logo: 'https://assets.tcgdex.net/de/swsh/base/logo',
-        },
-        category: 'Pokémon',
-        rarity: 'Common',
-      },
-    ]);
+    const cards = await fetchPokemonCards(4);
+
+    expect(cards).toHaveLength(2);
+    expect(cards[0]?.id).toBe('shared-1');
+    expect(cards[0]?.languages.de?.name).toBe('Glumanda');
+    expect(cards[0]?.languages.de?.image).toBe(
+      'https://assets.tcgdex.net/de/sv/sv03.5/004/low.webp',
+    );
+    expect(cards[0]?.languages.en?.name).toBe('Charmander');
+    expect(cards[0]?.languages.en?.image).toBe(
+      'https://assets.tcgdex.net/en/sv/sv03.5/004/low.webp',
+    );
+    expect(cards[1]?.id).toBe('ja-only-1');
+    expect(cards[1]?.languages.ja?.name).toBe('ヒトカゲ');
+    expect(cards[1]?.languages.ja?.image).toBe('https://assets.tcgdex.net/ja/SV/SV2a/004/low.webp');
   });
 
-  it('continues paging until the API returns a short final page', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
+  it('keeps partial availability when a card only exists in one language', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
 
       if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        const parsed = new URL(url);
-        const page = parsed.searchParams.get('pagination:page');
-
-        if (page === '1') {
-          const firstPage = [
-            ...Array.from({ length: 99 }, () => ({ id: 'base-1' })),
-            { id: 'base-2' },
-          ];
-
-          return Promise.resolve(asResponse(firstPage));
-        }
-
-        if (page === '2') {
-          expect(parsed.searchParams.get('pagination:itemsPerPage')).toBe('100');
-          return Promise.resolve(asResponse([{ id: 'base-3' }]));
-        }
+        return Promise.resolve(asResponse([]));
       }
 
-      if (url.endsWith('/de/cards/base-1')) {
-        return Promise.resolve(asResponse(cardDetail('base-1', '001', 'Glumanda', 'Basis Set')));
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([{ id: 'en-only-1' }]));
       }
 
-      if (url.endsWith('/de/cards/base-2')) {
-        return Promise.resolve(asResponse(cardDetail('base-2', '002', 'Glutexo', 'Jungle')));
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
       }
 
-      if (url.endsWith('/de/cards/base-3')) {
-        return Promise.resolve(asResponse(cardDetail('base-3', '003', 'Glurak', 'Fossil')));
+      if (url.endsWith('/en/cards/en-only-1')) {
+        return Promise.resolve(
+          asResponse(cardDetail('en-only-1', 'en', '004', 'Charmander', '151')),
+        );
       }
 
-      return Promise.resolve(asResponse({}, false, 404));
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
     });
 
-    const cards = await fetchPokemonCards(4, 'Glumanda');
+    vi.stubGlobal('fetch', fetchMock);
 
-    expect(cards).toHaveLength(3);
-    expect(cards.map((card) => card.id)).toEqual(['base-1', 'base-2', 'base-3']);
-  });
-
-  it('skips missing card details but keeps the remaining cards', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
-
-      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        return Promise.resolve(asResponse([{ id: 'base-1' }, { id: 'base-404' }]));
-      }
-
-      if (url.endsWith('/de/cards/base-1')) {
-        return Promise.resolve(asResponse(cardDetail('base-1', '001', 'Glumanda', 'Basis Set')));
-      }
-
-      if (url.endsWith('/de/cards/base-404')) {
-        return Promise.resolve(asResponse({}, false, 404));
-      }
-
-      return Promise.resolve(asResponse({}, false, 404));
-    });
-
-    const cards = await fetchPokemonCards(4, 'Glumanda');
+    const cards = await fetchPokemonCards(4);
 
     expect(cards).toHaveLength(1);
-    expect(cards[0]?.id).toBe('base-1');
+    expect(cards[0]?.id).toBe('en-only-1');
+    expect(cards[0]?.languages.en?.language).toBe('en');
+  });
+
+  it('skips missing localized card details but keeps the rest of the aggregate', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
+        return Promise.resolve(asResponse([{ id: 'shared-1' }, { id: 'missing-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([{ id: 'shared-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.endsWith('/de/cards/shared-1')) {
+        return Promise.resolve(asResponse(cardDetail('shared-1', 'de', '004', 'Glumanda', '151')));
+      }
+
+      if (url.endsWith('/en/cards/shared-1')) {
+        return Promise.resolve(
+          asResponse(cardDetail('shared-1', 'en', '004', 'Charmander', '151')),
+        );
+      }
+
+      if (url.endsWith('/de/cards/missing-1')) {
+        return Promise.resolve(asResponse({ message: 'Not found' }, { status: 404 }));
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const cards = await fetchPokemonCards(4);
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.id).toBe('shared-1');
+    expect(cards[0]?.languages.de?.language).toBe('de');
+    expect(cards[0]?.languages.en?.language).toBe('en');
   });
 
   it('drops cards whose detail payload does not expose the target dex id', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
 
       if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        return Promise.resolve(asResponse([{ id: 'base-1' }]));
+        return Promise.resolve(asResponse([{ id: 'wrong-1' }]));
       }
 
-      if (url.endsWith('/de/cards/base-1')) {
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.endsWith('/de/cards/wrong-1')) {
         return Promise.resolve(
-          asResponse({
-            id: 'base-1',
-            localId: '001',
-            name: 'Glumanda',
-            image: 'https://assets.tcgdex.net/de/swsh/base/001',
-            set: {
-              id: 'base',
-              name: 'Basis Set',
-              logo: 'https://assets.tcgdex.net/de/swsh/base/logo',
-            },
-            category: 'Pokémon',
-            rarity: 'Common',
-          }),
+          asResponse(cardDetail('wrong-1', 'de', '004', 'Glumanda', '151', [999])),
         );
       }
 
-      return Promise.resolve(asResponse({}, false, 404));
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
     });
 
-    await expect(fetchPokemonCards(4, 'Glumanda')).resolves.toEqual([]);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCards(4)).resolves.toEqual([]);
   });
 
-  it('surfaces list endpoint failures', async () => {
-    vi.mocked(fetch).mockResolvedValue(asResponse({}, false, 500));
+  it('returns null for 404 language lookups on one specific card id', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
 
-    await expect(fetchPokemonCards(4, 'Glumanda')).rejects.toMatchObject({
-      name: 'SearchPokemonError',
-      code: 'server',
-      status: 500,
+      if (url.endsWith('/ja/cards/shared-1')) {
+        return Promise.resolve(asResponse({ message: 'Not found' }, { status: 404 }));
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
     });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-1', 'ja')).resolves.toBeNull();
   });
 
-  it('surfaces non-404 card detail failures', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
+  it('rethrows non-404 card language lookup errors', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
 
-      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        return Promise.resolve(asResponse([{ id: 'base-1' }]));
+      if (url.endsWith('/en/cards/shared-1')) {
+        return Promise.resolve(asResponse({ message: 'boom' }, { status: 500 }));
       }
 
-      if (url.endsWith('/de/cards/base-1')) {
-        return Promise.resolve(asResponse({}, false, 500));
-      }
-
-      return Promise.resolve(asResponse({}, false, 404));
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
     });
 
-    await expect(fetchPokemonCards(4, 'Glumanda')).rejects.toMatchObject({
-      name: 'SearchPokemonError',
-      code: 'server',
-      status: 500,
-    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-1', 'en')).rejects.toBeInstanceOf(Error);
   });
 
-  it('maps missing optional card fields to safe defaults', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
+  it('normalizes missing optional card fields from one language detail response', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
 
-      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        return Promise.resolve(asResponse([{ id: 'base-1' }]));
-      }
-
-      if (url.endsWith('/de/cards/base-1')) {
+      if (url.endsWith('/en/cards/shared-2')) {
         return Promise.resolve(
           asResponse({
-            id: 'base-1',
-            localId: '001',
-            name: 'Glumanda',
-            dexId: [4],
+            id: 'shared-2',
+            localId: '099',
+            name: 'Charmander',
+            image: null,
+            dexId: 'not-an-array',
             set: {
-              id: 'base',
-              name: 'Basis Set',
+              id: 'base1',
+              name: 'Base Set',
             },
           }),
         );
       }
 
-      return Promise.resolve(asResponse({}, false, 404));
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
     });
 
-    await expect(fetchPokemonCards(4, 'Glumanda')).resolves.toEqual([
-      {
-        id: 'base-1',
-        name: 'Glumanda',
-        localId: '001',
-        image: null,
-        dexIds: [4],
-        set: {
-          id: 'base',
-          name: 'Basis Set',
-          logo: null,
-        },
-        category: null,
-        rarity: null,
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCardByIdInLanguage('shared-2', 'en')).resolves.toEqual({
+      id: 'shared-2',
+      language: 'en',
+      name: 'Charmander',
+      localId: '099',
+      image: null,
+      dexIds: [],
+      set: {
+        id: 'base1',
+        name: 'Base Set',
+        logo: null,
       },
-    ]);
-  });
-
-  it('keeps successfully loaded cards when one card detail request fails', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
-
-      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        return Promise.resolve(asResponse([{ id: 'base-1' }, { id: 'base-2' }]));
-      }
-
-      if (url.endsWith('/de/cards/base-1')) {
-        return Promise.resolve(asResponse(cardDetail('base-1', '001', 'Glumanda', 'Basis Set')));
-      }
-
-      if (url.endsWith('/de/cards/base-2')) {
-        return Promise.resolve(asResponse({}, false, 500));
-      }
-
-      return Promise.resolve(asResponse({}, false, 404));
+      category: null,
+      rarity: null,
     });
-
-    await expect(fetchPokemonCards(4, 'Glumanda')).resolves.toEqual([
-      {
-        id: 'base-1',
-        name: 'Glumanda',
-        localId: '001',
-        image: 'https://assets.tcgdex.net/de/swsh/base/001/low.webp',
-        dexIds: [4],
-        set: {
-          id: 'base',
-          name: 'Basis Set',
-          logo: 'https://assets.tcgdex.net/de/swsh/base/logo',
-        },
-        category: 'Pokémon',
-        rarity: 'Common',
-      },
-    ]);
   });
 
-  it('keeps localized title variants such as ex cards when they belong to the same dex id', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = inputToUrl(input);
+  it('deduplicates paginated briefs across pages and keeps one aggregate entry', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+      const parsedUrl = new URL(url);
+      const page = parsedUrl.searchParams.get('pagination:page');
 
-      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        return Promise.resolve(asResponse([{ id: 'base-ex' }]));
-      }
-
-      if (url.endsWith('/de/cards/base-ex')) {
+      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?') && page === '1') {
         return Promise.resolve(
-          asResponse(cardDetail('base-ex', '125', 'Glumanda-ex', 'Karmesin & Purpur', [4])),
+          asResponse(
+            new Array(100)
+              .fill(null)
+              .map((_, index) => ({ id: index === 99 ? 'shared-1' : `de-${String(index)}` })),
+          ),
         );
       }
 
-      return Promise.resolve(asResponse({}, false, 404));
+      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?') && page === '2') {
+        return Promise.resolve(asResponse([{ id: 'shared-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.endsWith('/de/cards/shared-1')) {
+        return Promise.resolve(asResponse(cardDetail('shared-1', 'de', '004', 'Glumanda', '151')));
+      }
+
+      if (url.includes('/de/cards/de-')) {
+        const id = url.split('/').pop() ?? 'missing';
+        return Promise.resolve(asResponse(cardDetail(id, 'de', '001', 'Karte', '151')));
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
     });
 
-    await expect(fetchPokemonCards(4, 'Glumanda')).resolves.toEqual([
-      {
-        id: 'base-ex',
-        name: 'Glumanda-ex',
-        localId: '125',
-        image: 'https://assets.tcgdex.net/de/swsh/base/125/low.webp',
-        dexIds: [4],
-        set: {
-          id: 'base',
-          name: 'Karmesin & Purpur',
-          logo: 'https://assets.tcgdex.net/de/swsh/base/logo',
-        },
-        category: 'Pokémon',
-        rarity: 'Common',
-      },
-    ]);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const cards = await fetchPokemonCards(4);
+
+    expect(cards.filter((card) => card.id === 'shared-1')).toHaveLength(1);
+  });
+
+  it('throws the first detail error when briefs exist but no valid cards can be built', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
+        return Promise.resolve(asResponse([{ id: 'broken-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.endsWith('/de/cards/broken-1')) {
+        return Promise.resolve(asResponse({ message: 'boom' }, { status: 500 }));
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCards(4)).rejects.toBeInstanceOf(Error);
+  });
+
+  it('returns an empty list when every language brief list is empty', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCards(4)).resolves.toEqual([]);
   });
 });

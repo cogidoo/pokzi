@@ -14,9 +14,14 @@
     type DetailHistoryState,
   } from './features/navigation/hashRouter';
   import { SearchController, type SearchUiState } from './features/search/searchController';
-  import { fetchPokemonCards } from './services/pokemonCardsApi';
+  import { fetchPokemonCards, SUPPORTED_CARD_LANGUAGES } from './services/pokemonCardsApi';
   import { fetchPokemonDetail, isSearchPokemonError, searchPokemon } from './services/pokemonApi';
-  import type { PokemonCard } from './types/pokemonCards';
+  import type {
+    PokemonCard,
+    PokemonCardAggregate,
+    PokemonCardLanguage,
+    PokemonCardTileData,
+  } from './types/pokemonCards';
   import type { PokemonDetail, PokemonSearchResult } from './types/pokemon';
 
   /*
@@ -43,7 +48,7 @@
   let detail = $state<PokemonDetail | null>(null);
   let detailCardsUiState = $state<DetailCardsUiState>('idle');
   let detailCardsErrorMessage = $state('');
-  let detailCards = $state<PokemonCard[]>([]);
+  let detailCards = $state<PokemonCardAggregate[]>([]);
   let openedFromResults = $state(false);
   let detailTransitioning = $state(false);
   let resultsScrolled = $state(false);
@@ -69,6 +74,7 @@
   const UPWARD_INTENT_WINDOW_MS = 220;
   let lastUpwardIntentAt = -Infinity;
   const compactSearch = $derived(uiState === 'success' && results.length > 0 && resultsScrolled);
+  const visibleDetailCards = $derived.by(() => mapVisibleDetailCards(detailCards));
 
   /**
    * Checks whether search results are currently visible and scroll-aware header logic is active.
@@ -101,6 +107,147 @@
       minimumFractionDigits: hasDecimal ? 1 : 0,
       maximumFractionDigits: 1,
     });
+  }
+
+  /**
+   * Builds the preferred language order for content and image fallback.
+   *
+   * @param preferredLanguage - Currently selected card language.
+   * @returns Ordered unique language list.
+   */
+  function getCardLanguageOrder(preferredLanguage: PokemonCardLanguage): PokemonCardLanguage[] {
+    return [
+      preferredLanguage,
+      ...SUPPORTED_CARD_LANGUAGES.filter((language) => language !== preferredLanguage),
+    ];
+  }
+
+  /**
+   * Resolves the best visible variant for one aggregated card.
+   *
+   * @param card - Aggregated card grouped by stable card id.
+   * @param selectedLanguage - Language chosen by the user.
+   * @returns Localized variant or `null` when no variant exists.
+   */
+  function getVisibleCardVariant(
+    card: PokemonCardAggregate,
+    selectedLanguage: PokemonCardLanguage,
+  ): PokemonCard | null {
+    const selectableLanguages = getSelectableCardLanguages(card);
+    const orderedLanguages =
+      selectableLanguages.length > 0 ? selectableLanguages : getCardLanguageOrder(selectedLanguage);
+
+    for (const language of orderedLanguages) {
+      const variant = card.languages[language];
+      if (variant) {
+        return variant;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolves the strongest available image for one aggregated card.
+   *
+   * @param card - Aggregated card grouped by stable card id.
+   * @param selectedLanguage - Language chosen by the user.
+   * @returns Matching image URL from the preferred fallback chain or `null`.
+   */
+  function resolveCardImage(
+    card: PokemonCardAggregate,
+    selectedLanguage: PokemonCardLanguage,
+  ): { imageUrl: string | null; imageLanguage: PokemonCardLanguage | null } {
+    for (const language of getCardLanguageOrder(selectedLanguage)) {
+      const variant = card.languages[language];
+      if (variant?.image) {
+        return {
+          imageUrl: variant.image,
+          imageLanguage: language,
+        };
+      }
+    }
+
+    return {
+      imageUrl: null,
+      imageLanguage: null,
+    };
+  }
+
+  /**
+   * Resolves which languages can be shown as one consistent card.
+   *
+   * When at least one localized image exists, only languages with their own image stay selectable.
+   * If no image exists in any language, every localized text variant stays selectable.
+   *
+   * @param card - Aggregated card grouped by stable card id.
+   * @returns Selectable display languages in stable UI order.
+   */
+  function getSelectableCardLanguages(card: PokemonCardAggregate): PokemonCardLanguage[] {
+    const localizedLanguages = SUPPORTED_CARD_LANGUAGES.filter(
+      (language) => card.languages[language] !== undefined,
+    );
+    const imageLanguages = localizedLanguages.filter(
+      (language) => card.languages[language]?.image !== null,
+    );
+
+    if (imageLanguages.length > 0) {
+      return imageLanguages;
+    }
+
+    return localizedLanguages;
+  }
+
+  /**
+   * Maps the currently visible localized cards to gallery/viewer tile data.
+   *
+   * @param cards - Aggregated cards for every supported language.
+   * @param selectedLanguage - Language chosen by the user.
+   * @returns Tile models for the visible cards.
+   */
+  function mapVisibleDetailCards(cards: PokemonCardAggregate[]): PokemonCardTileData[] {
+    const visibleCards: PokemonCardTileData[] = [];
+
+    for (const card of cards) {
+      const visibleVariant = getVisibleCardVariant(card, 'de');
+      if (!visibleVariant) {
+        continue;
+      }
+
+      const resolvedImage = resolveCardImage(card, visibleVariant.language ?? 'de');
+      const availableLanguages = getSelectableCardLanguages(card);
+      const variants = Object.fromEntries(
+        availableLanguages.map((language) => {
+          const variant = card.languages[language];
+
+          return [
+            language,
+            {
+              language,
+              name: variant?.name ?? visibleVariant.name,
+              setName: variant?.set.name ?? visibleVariant.set.name,
+              number: variant?.localId ?? visibleVariant.localId,
+              imageUrl: variant?.image ?? null,
+              imageLanguage: variant?.image ? language : null,
+            },
+          ];
+        }),
+      );
+
+      visibleCards.push({
+        id: card.id,
+        language: visibleVariant.language,
+        availableLanguages,
+        imageLanguage: resolvedImage.imageLanguage,
+        variants,
+        name: visibleVariant.name,
+        setName: visibleVariant.set.name,
+        number: visibleVariant.localId,
+        imageUrl: resolvedImage.imageUrl,
+      });
+    }
+
+    return visibleCards;
   }
 
   /**
@@ -208,15 +355,14 @@
     activeDetailCardsAbort = requestAbort;
     detailCardsUiState = 'loading';
     detailCardsErrorMessage = '';
-
     try {
-      const cards = await fetchPokemonCards(pokemon.id, pokemon.displayName, requestAbort.signal);
+      const cards = await fetchPokemonCards(pokemon.id, requestAbort.signal);
       if (requestToken !== nextDetailCardsRequestToken) {
         return;
       }
 
       detailCards = cards;
-      detailCardsUiState = cards.length > 0 ? 'success' : 'empty';
+      detailCardsUiState = mapVisibleDetailCards(cards).length > 0 ? 'success' : 'empty';
     } catch (error) {
       if (requestToken !== nextDetailCardsRequestToken) {
         return;
@@ -867,13 +1013,8 @@
             <PokemonCardsGallery
               pokemonName={currentDetail.displayName}
               galleryState={detailCardsUiState}
-              cards={detailCards.map((card) => ({
-                id: card.id,
-                name: card.name,
-                setName: card.set.name,
-                number: card.localId,
-                imageUrl: card.image,
-              }))}
+              cards={visibleDetailCards}
+              availableLanguages={SUPPORTED_CARD_LANGUAGES}
               errorMessage={detailCardsErrorMessage}
               onRetry={() => void loadDetailCards(currentDetail)}
             />

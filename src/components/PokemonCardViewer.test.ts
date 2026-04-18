@@ -24,6 +24,7 @@ describe('PokemonCardViewer', () => {
     render(PokemonCardViewer, {
       cards,
       currentIndex: 0,
+      availableLanguages: ['de', 'en'],
       onClose: vi.fn(),
       onSelect: vi.fn(),
     });
@@ -32,6 +33,263 @@ describe('PokemonCardViewer', () => {
     expect(screen.getByRole('img', { name: 'Glumanda' })).toHaveAttribute(
       'src',
       'https://img/a/high.webp',
+    );
+  });
+
+  it('shows a clear loading state until the fullscreen image finishes loading', async () => {
+    render(PokemonCardViewer, {
+      cards,
+      currentIndex: 0,
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.getByText('Karte wird geladen...')).toBeInTheDocument();
+
+    await fireEvent.load(screen.getByRole('img', { name: 'Glumanda' }));
+
+    expect(screen.queryByText('Karte wird geladen...')).not.toBeInTheDocument();
+  });
+
+  it('renders language controls, hides text labels, and switches language only for the current card', async () => {
+    render(PokemonCardViewer, {
+      cards: [
+        {
+          ...cards[0],
+          language: 'en',
+          availableLanguages: ['en', 'ja'],
+          variants: {
+            en: {
+              language: 'en',
+              name: 'Charmander',
+              setName: 'Base Set',
+              number: '001/102',
+              imageUrl: 'https://img/a/low.webp',
+              imageLanguage: 'en',
+            },
+            ja: {
+              language: 'ja',
+              name: 'ヒトカゲ',
+              setName: 'ベースセット',
+              number: '001/102',
+              imageUrl: 'https://img/a-ja/low.webp',
+              imageLanguage: 'ja',
+            },
+          },
+        },
+        {
+          ...cards[1],
+          language: 'de',
+          availableLanguages: ['de', 'en'],
+          variants: {
+            de: {
+              language: 'de',
+              name: 'Glutexo',
+              setName: 'Karmesin & Purpur',
+              number: '002/198',
+              imageUrl: null,
+              imageLanguage: null,
+            },
+            en: {
+              language: 'en',
+              name: 'Charmeleon',
+              setName: 'Scarlet & Violet',
+              number: '002/198',
+              imageUrl: null,
+              imageLanguage: null,
+            },
+          },
+        },
+      ],
+      currentIndex: 0,
+      availableLanguages: ['de', 'en', 'ja'],
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.getByRole('radiogroup', { name: 'Sprache der Karte' })).toBeInTheDocument();
+    expect(screen.queryByText('Deutsch')).not.toBeInTheDocument();
+    expect(screen.queryByText('Englisch')).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Deutsch anzeigen' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Japanisch anzeigen' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+
+    await fireEvent.click(screen.getByRole('radio', { name: 'Japanisch anzeigen' }));
+    expect(screen.getByRole('heading', { name: 'ヒトカゲ' })).toBeInTheDocument();
+  });
+
+  it('resets the modal language to the next card default instead of remembering the previous card choice', async () => {
+    const view = render(PokemonCardViewer, {
+      cards: [
+        {
+          ...cards[0],
+          language: 'en',
+          availableLanguages: ['en', 'ja'],
+          variants: {
+            en: {
+              language: 'en',
+              name: 'Charmander',
+              setName: 'Base Set',
+              number: '001/102',
+              imageUrl: 'https://img/a/low.webp',
+              imageLanguage: 'en',
+            },
+            ja: {
+              language: 'ja',
+              name: 'ヒトカゲ',
+              setName: 'ベースセット',
+              number: '001/102',
+              imageUrl: 'https://img/a-ja/low.webp',
+              imageLanguage: 'ja',
+            },
+          },
+        },
+        {
+          ...cards[1],
+          language: 'de',
+          availableLanguages: ['de', 'en'],
+          variants: {
+            de: {
+              language: 'de',
+              name: 'Glutexo',
+              setName: 'Karmesin & Purpur',
+              number: '002/198',
+              imageUrl: null,
+              imageLanguage: null,
+            },
+            en: {
+              language: 'en',
+              name: 'Charmeleon',
+              setName: 'Scarlet & Violet',
+              number: '002/198',
+              imageUrl: null,
+              imageLanguage: null,
+            },
+          },
+        },
+      ],
+      currentIndex: 0,
+      availableLanguages: ['de', 'en', 'ja'],
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    await fireEvent.click(screen.getByRole('radio', { name: 'Japanisch anzeigen' }));
+    expect(screen.getByRole('heading', { name: 'ヒトカゲ' })).toBeInTheDocument();
+
+    await view.rerender({
+      cards: [
+        {
+          ...cards[0],
+          language: 'en',
+          availableLanguages: ['en', 'ja'],
+          variants: {
+            en: {
+              language: 'en',
+              name: 'Charmander',
+              setName: 'Base Set',
+              number: '001/102',
+              imageUrl: 'https://img/a/low.webp',
+              imageLanguage: 'en',
+            },
+            ja: {
+              language: 'ja',
+              name: 'ヒトカゲ',
+              setName: 'ベースセット',
+              number: '001/102',
+              imageUrl: 'https://img/a-ja/low.webp',
+              imageLanguage: 'ja',
+            },
+          },
+        },
+        {
+          ...cards[1],
+          language: 'de',
+          availableLanguages: ['de', 'en'],
+          variants: {
+            de: {
+              language: 'de',
+              name: 'Glutexo',
+              setName: 'Karmesin & Purpur',
+              number: '002/198',
+              imageUrl: null,
+              imageLanguage: null,
+            },
+            en: {
+              language: 'en',
+              name: 'Charmeleon',
+              setName: 'Scarlet & Violet',
+              number: '002/198',
+              imageUrl: null,
+              imageLanguage: null,
+            },
+          },
+        },
+      ],
+      currentIndex: 1,
+      availableLanguages: ['de', 'en', 'ja'],
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.getByRole('heading', { name: 'Glutexo' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Deutsch anzeigen' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('does not show extra fallback prose in the modal', () => {
+    render(PokemonCardViewer, {
+      cards: [
+        {
+          ...cards[0],
+          language: 'de',
+          imageLanguage: 'en',
+          availableLanguages: ['de', 'en'],
+        },
+      ],
+      currentIndex: 0,
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    expect(screen.queryByText(/Text:/)).not.toBeInTheDocument();
+  });
+
+  it('ignores clicks on disabled language buttons', async () => {
+    render(PokemonCardViewer, {
+      cards: [
+        {
+          ...cards[0],
+          language: 'en',
+          availableLanguages: ['en'],
+          variants: {
+            en: {
+              language: 'en',
+              name: 'Charmander',
+              setName: 'Base Set',
+              number: '001/102',
+              imageUrl: 'https://img/a/low.webp',
+              imageLanguage: 'en',
+            },
+          },
+        },
+      ],
+      currentIndex: 0,
+      availableLanguages: ['de', 'en', 'ja'],
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    await fireEvent.click(screen.getByRole('radio', { name: 'Deutsch anzeigen' }));
+
+    expect(screen.getByRole('heading', { name: 'Charmander' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Englisch anzeigen' })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
   });
 
@@ -72,6 +330,20 @@ describe('PokemonCardViewer', () => {
     expect(screen.getByText('Bild nicht verfügbar')).toBeInTheDocument();
     expect(screen.getByText('Glutexo')).toBeInTheDocument();
     expect(screen.getByText('Nr. 002/198')).toBeInTheDocument();
+  });
+
+  it('falls back to metadata mode when the fullscreen image errors', async () => {
+    render(PokemonCardViewer, {
+      cards,
+      currentIndex: 0,
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+    });
+
+    await fireEvent.error(screen.getByRole('img', { name: 'Glumanda' }));
+
+    expect(screen.getByText('Bild nicht verfügbar')).toBeInTheDocument();
+    expect(screen.getByText('Schwert & Schild')).toBeInTheDocument();
   });
 
   it('closes on escape key', async () => {

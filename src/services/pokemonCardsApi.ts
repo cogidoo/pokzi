@@ -1,22 +1,27 @@
-import { mapWithConcurrency, throwIfAborted } from './utils/async';
 import { fetchJson, isHttpStatusError } from './http/pokeApiClient';
-import type { PokemonCard } from '../types/pokemonCards';
+import { mapWithConcurrency, throwIfAborted } from './utils/async';
+import type { PokemonCard, PokemonCardAggregate, PokemonCardLanguage } from '../types/pokemonCards';
 
-const TCGDEX_API = 'https://api.tcgdex.net/v2/de';
+const TCGDEX_API = 'https://api.tcgdex.net/v2';
 const CARDS_PAGE_SIZE = 100;
 const CARD_DETAIL_CONCURRENCY = 6;
 const CARD_IMAGE_QUALITY = 'low';
 const CARD_IMAGE_EXTENSION = 'webp';
 
 /**
- * Brief card payload returned by the list endpoint.
+ * Supported detail-page card languages in preferred fallback order.
+ */
+export const SUPPORTED_CARD_LANGUAGES: PokemonCardLanguage[] = ['de', 'en', 'ja'];
+
+/**
+ * Minimal list payload returned by the localized cards endpoint.
  */
 interface TcgDexCardBrief {
   id: string;
 }
 
 /**
- * Full TCGdex card payload used for the normalized gallery model.
+ * Localized card detail payload normalized for the detail-page gallery.
  */
 interface TcgDexCardResponse {
   id: string;
@@ -34,26 +39,47 @@ interface TcgDexCardResponse {
 }
 
 /**
- * Fetches German Pokemon cards for one Pokemon from TCGdex.
+ * Loads all localized cards for one Pokemon and groups them by stable card id.
  *
- * @param dexId - National Pokédex id used to verify the resolved cards.
- * @param germanName - German Pokemon display name used for the localized card lookup.
+ * @param dexId - National Pokédex id used for card lookup.
  * @param signal - Optional cancellation signal.
- * @returns Normalized card list for the Pokemon detail page.
+ * @returns Aggregated cards keyed by `card.id`.
  */
 export async function fetchPokemonCards(
   dexId: number,
-  germanName: string,
+  signal?: AbortSignal,
+): Promise<PokemonCardAggregate[]> {
+  const perLanguageResults = await Promise.all(
+    SUPPORTED_CARD_LANGUAGES.map(async (language) => ({
+      language,
+      cards: await fetchPokemonCardsForLanguage(dexId, language, signal),
+    })),
+  );
+
+  return groupCardsById(perLanguageResults);
+}
+
+/**
+ * Loads one localized card list for a single TCGdex language.
+ *
+ * @param dexId - National Pokédex id used for card lookup.
+ * @param language - Requested TCGdex language.
+ * @param signal - Optional cancellation signal.
+ * @returns Normalized localized cards for that language.
+ */
+export async function fetchPokemonCardsForLanguage(
+  dexId: number,
+  language: PokemonCardLanguage,
   signal?: AbortSignal,
 ): Promise<PokemonCard[]> {
-  const briefs = await fetchCardBriefsByGermanName(germanName, signal);
+  const briefs = await fetchCardBriefsByDexId(dexId, language, signal);
   const cardResults = await mapWithConcurrency(
     briefs,
     CARD_DETAIL_CONCURRENCY,
     async (brief) => {
       try {
         return {
-          card: await fetchPokemonCardById(brief.id, signal),
+          card: await fetchPokemonCardByIdInLanguage(brief.id, language, signal),
           error: null as unknown,
         };
       } catch (error) {
@@ -71,7 +97,7 @@ export async function fetchPokemonCards(
     .map((result) => result.card)
     .filter((card): card is PokemonCard => card?.dexIds.includes(dexId) === true);
 
-  if (cards.length > 0) {
+  if (cards.length > 0 || briefs.length === 0) {
     return cards;
   }
 
@@ -86,14 +112,44 @@ export async function fetchPokemonCards(
 }
 
 /**
- * Fetches paginated German card briefs for one German Pokemon name.
+ * Fetches a concrete card id in one target language.
  *
- * @param germanName - German Pokemon display name used by the localized card search.
+ * @param cardId - Stable TCGdex card id.
+ * @param language - Requested TCGdex language.
  * @param signal - Optional cancellation signal.
- * @returns All localized card briefs for the Pokemon name, in API order.
+ * @returns Localized card or `null` when unavailable in that language.
  */
-async function fetchCardBriefsByGermanName(
-  germanName: string,
+export async function fetchPokemonCardByIdInLanguage(
+  cardId: string,
+  language: PokemonCardLanguage,
+  signal?: AbortSignal,
+): Promise<PokemonCard | null> {
+  try {
+    const response = await fetchJson<TcgDexCardResponse>(
+      `${TCGDEX_API}/${language}/cards/${cardId}`,
+      signal,
+    );
+    return mapCardResponse(response, language);
+  } catch (error) {
+    if (isHttpStatusError(error, 404)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Fetches paginated card briefs for one Pokemon dex id in one TCG language.
+ *
+ * @param dexId - National Pokédex id for the card search.
+ * @param language - Requested TCGdex language.
+ * @param signal - Optional cancellation signal.
+ * @returns All matching localized card briefs, in API order.
+ */
+async function fetchCardBriefsByDexId(
+  dexId: number,
+  language: PokemonCardLanguage,
   signal?: AbortSignal,
 ): Promise<TcgDexCardBrief[]> {
   const results: TcgDexCardBrief[] = [];
@@ -102,8 +158,8 @@ async function fetchCardBriefsByGermanName(
   for (;;) {
     throwIfAborted(signal);
 
-    const url = new URL(`${TCGDEX_API}/cards`);
-    url.searchParams.set('name', germanName);
+    const url = new URL(`${TCGDEX_API}/${language}/cards`);
+    url.searchParams.set('dexId', String(dexId));
     url.searchParams.set('pagination:page', String(page));
     url.searchParams.set('pagination:itemsPerPage', String(CARDS_PAGE_SIZE));
 
@@ -121,26 +177,29 @@ async function fetchCardBriefsByGermanName(
 }
 
 /**
- * Fetches and normalizes one German TCGdex card.
+ * Groups localized search results by stable card id.
  *
- * @param cardId - TCGdex card id.
- * @param signal - Optional cancellation signal.
- * @returns Normalized card or `null` if the card no longer exists.
+ * @param results - Localized card lists keyed by language.
+ * @returns Aggregated cards with per-language variants.
  */
-async function fetchPokemonCardById(
-  cardId: string,
-  signal?: AbortSignal,
-): Promise<PokemonCard | null> {
-  try {
-    const response = await fetchJson<TcgDexCardResponse>(`${TCGDEX_API}/cards/${cardId}`, signal);
-    return mapCardResponse(response);
-  } catch (error) {
-    if (isHttpStatusError(error, 404)) {
-      return null;
-    }
+function groupCardsById(
+  results: { language: PokemonCardLanguage; cards: PokemonCard[] }[],
+): PokemonCardAggregate[] {
+  const grouped = new Map<string, PokemonCardAggregate>();
 
-    throw error;
+  for (const { language, cards } of results) {
+    for (const card of cards) {
+      const existing = grouped.get(card.id) ?? {
+        id: card.id,
+        languages: {},
+      };
+
+      existing.languages[language] = card;
+      grouped.set(card.id, existing);
+    }
   }
+
+  return [...grouped.values()];
 }
 
 /**
@@ -169,11 +228,13 @@ function dedupeBriefs(briefs: TcgDexCardBrief[]): TcgDexCardBrief[] {
  * Maps the raw TCGdex card payload to a UI-oriented model.
  *
  * @param card - Raw TCGdex response.
+ * @param language - Requested TCGdex language.
  * @returns Normalized Pokemon card model.
  */
-function mapCardResponse(card: TcgDexCardResponse): PokemonCard {
+function mapCardResponse(card: TcgDexCardResponse, language: PokemonCardLanguage): PokemonCard {
   return {
     id: card.id,
+    language,
     name: card.name,
     localId: card.localId,
     image: toCardImageUrl(card.image),

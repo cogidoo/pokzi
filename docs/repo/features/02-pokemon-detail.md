@@ -26,7 +26,7 @@ The detail page turns a search result into a simple learning moment without forc
 - Dedicated detail page for one selected Pokemon
 - Prominent hero area with artwork, German name, ID, and German type chips
 - Curated key facts section
-- Optional TCG cards section for German-language Pokemon cards when localized card data is available
+- Optional TCG cards section for localized Pokemon cards with German as the preferred starting language
 - Evolution summary with stage-based visual navigation across the visible chain path
 - Back action to the preserved search/results context
 - Loading, error, and retry states for detail fetch
@@ -89,22 +89,31 @@ Presentation rules:
 ## Cards Gallery
 
 - Place the cards section after key facts so the core Pokemon learning flow remains intact.
-- Show the section only when German-language card data is available for the current Pokemon.
-- Prefer German cards first when multiple localized card variants exist.
+- Show the section when at least one supported card language is available for the current Pokemon.
+- Prefer German cards first when multiple localized card variants exist, then English, then Japanese.
 - Present cards as a horizontal, touch-friendly gallery with snap behavior rather than a dense list or table.
 - Support opening one card into a focused fullscreen viewer without leaving the Pokemon detail page.
 - Keep each card item visually focused on the real card artwork.
 - Show only lightweight supporting metadata per card, such as localized card name, set name, and card number.
 - Keep the section exploratory and collectible in tone, but visually subordinate to the hero and evolution summary.
+- Keep German as the default card language context on the detail page.
+- Allow language switching only inside the fullscreen card viewer, not in the inline gallery.
+- On the detail page, resolve card content with a calm fixed fallback order of German first, then English, then Japanese.
+- When a localized card has no usable image, prefer an exact-card image from another supported language before falling back to the existing metadata-only card treatment.
+- Do not mix one language's text with another language's image in one visible card; when a fallback image forces a language change, switch the whole visible card to that fallback language.
+- In the gallery, keep German cards first, then English cards, then Japanese cards.
+- Keep the inline gallery visually quiet: no language helper copy, no grouping chips, and no in-stream separator cards.
+- Inside the fullscreen viewer, keep all supported language buttons visible and disable languages that are unavailable for the current card.
 
 Presentation rules:
 
-- Do not introduce filters, tabs, or sort controls in the initial detail experience.
+- Do not introduce heavy catalog-management UI such as dense filters, settings panels, or sorting controls in the detail experience.
 - Do not let card chrome or pagination UI compete with the Pokemon hero.
 - Keep the section valuable even when only one or two cards are available.
 - Avoid card layouts that require horizontal page scrolling outside the section itself.
 - Prefer cards with a usable image before cards without one.
 - Cards without images must still remain understandable and accessible instead of disappearing silently.
+- Keep language selection lightweight, touch-safe, and understandable for children without turning the gallery into a settings surface.
 
 ## Evolution Summary
 
@@ -143,6 +152,8 @@ Presentation rules:
 - Missing optional hero description must not cause the core hero identity block to noticeably jump between related Pokemon.
 - If no German cards are available, replace the gallery with a quiet local empty state or hide the section according to the implementation choice documented for the feature.
 - If a card entry has no image, keep the card available with a calm fallback treatment and place it after image-backed cards.
+- If German cards are unavailable but English or Japanese cards are available, keep the section visible and continue using the fixed fallback order.
+- If a fullscreen card language is unavailable for the current card, keep its button visible but clearly disabled.
 
 ## UX/UI Handoff
 
@@ -201,6 +212,8 @@ Implementation notes:
 - On tablet widths, allow multiple cards to be visible at once while preserving a strong leading item.
 - Keep motion subtle and allow reduced-motion users to explore the section without animated emphasis.
 - Tapping a card should open a fullscreen card viewer layered over the detail page instead of navigating away.
+- The fullscreen viewer is the only place where children change card language.
+- Language switching inside the fullscreen viewer is scoped to the current card only and resets to that next card's own default language when the child moves on.
 
 Implementation notes:
 
@@ -211,6 +224,8 @@ Implementation notes:
 - Inline gallery images should load lazily so the section can appear before every card image has downloaded.
 - In the fullscreen viewer, support next/previous navigation with both explicit controls and horizontal swipe gestures on touch devices.
 - A card without an image should still open in the fullscreen viewer with a strong metadata fallback rather than a broken zoom state.
+- In the fullscreen viewer, language options should stay visible as clear touch-sized controls with strong disabled states and simple flag-only presentation.
+- Automatic image fallback should remain visible in both the gallery context and the fullscreen viewer context when it affects the shown card.
 
 ### Optional Content Behavior
 
@@ -233,6 +248,8 @@ Implementation notes:
 - Key facts are rendered as cards and remain easy to scan.
 - When present, the cards section is visually distinct from facts and reads as a lightweight gallery of real cards.
 - The cards section opens a focused fullscreen card viewer that feels connected to the current detail page rather than like a route change.
+- The cards section can reveal English and Japanese card variants without making the detail page feel like a collector dashboard.
+- Language context and fallback behavior remain understandable for children in simple German copy.
 - Optional sections disappear cleanly when data is unavailable.
 - The detail page remains readable and touch-friendly on phone and iPad widths defined in `DESIGN_BRIEF.md`.
 - Switching between related Pokemon from inside the detail page does not cause a full-page loading jump that breaks the user's spatial orientation.
@@ -250,11 +267,14 @@ Implementation notes:
 - When available, the short German flavor text appears inside the hero instead of as a separate later section.
 - The evolution summary appears before the key facts section.
 - The page exposes an evolution summary with the current stage and visual navigation for all visible chain items when available.
-- When German card data is available, the page shows a cards gallery after the key facts section.
+- When card data in at least one supported language is available, the page shows a cards gallery after the key facts section.
 - The cards gallery presents localized card artwork and short supporting metadata in a horizontal touch-friendly format.
 - Tapping a card opens a fullscreen viewer with clear close, previous, and next controls.
 - The fullscreen viewer supports touch-friendly horizontal swipe navigation on iPad widths.
+- The fullscreen viewer exposes a clear language switch for German, English, and Japanese cards when those languages are available.
+- Each fullscreen card starts in its own best default language and does not carry the previous card's language choice forward.
 - Cards without a usable image appear after image-backed cards in the gallery and still expose a readable fallback in both gallery and fullscreen states.
+- If an exact localized card has no image and another supported language exposes an image for the same card id, the UI may use that image while keeping the card otherwise understandable.
 - A cards-section loading or error state does not replace the full detail page state.
 - The back action remains visible in loading, error, and not-found states.
 - Loading, error, retry, not-found, and missing-data behavior are all present and distinguishable.
