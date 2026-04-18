@@ -7,6 +7,7 @@ const CARDS_PAGE_SIZE = 100;
 const CARD_DETAIL_CONCURRENCY = 6;
 const CARD_IMAGE_QUALITY = 'low';
 const CARD_IMAGE_EXTENSION = 'webp';
+const EXACT_DEX_ID_FILTER_PREFIX = 'eq:';
 
 /**
  * Supported detail-page card languages in preferred fallback order.
@@ -50,13 +51,42 @@ export async function fetchPokemonCards(
   signal?: AbortSignal,
 ): Promise<PokemonCardAggregate[]> {
   const perLanguageResults = await Promise.all(
-    SUPPORTED_CARD_LANGUAGES.map(async (language) => ({
-      language,
-      cards: await fetchPokemonCardsForLanguage(dexId, language, signal),
-    })),
+    SUPPORTED_CARD_LANGUAGES.map(async (language) => {
+      try {
+        return {
+          language,
+          cards: await fetchPokemonCardsForLanguage(dexId, language, signal),
+          error: null as unknown,
+        };
+      } catch (error) {
+        throwIfAborted(signal);
+        return {
+          language,
+          cards: [],
+          error,
+        };
+      }
+    }),
   );
 
-  return groupCardsById(perLanguageResults);
+  const groupedCards = groupCardsById(
+    perLanguageResults.map(({ language, cards }) => ({
+      language,
+      cards,
+    })),
+  );
+  if (groupedCards.length > 0) {
+    return groupedCards;
+  }
+
+  const firstError = perLanguageResults.find((result) => result.error !== null)?.error;
+  if (firstError) {
+    throw firstError instanceof Error
+      ? firstError
+      : new Error('TCGdex localized card request failed.');
+  }
+
+  return [];
 }
 
 /**
@@ -159,7 +189,7 @@ async function fetchCardBriefsByDexId(
     throwIfAborted(signal);
 
     const url = new URL(`${TCGDEX_API}/${language}/cards`);
-    url.searchParams.set('dexId', String(dexId));
+    url.searchParams.set('dexId', `${EXACT_DEX_ID_FILTER_PREFIX}${String(dexId)}`);
     url.searchParams.set('pagination:page', String(page));
     url.searchParams.set('pagination:itemsPerPage', String(CARDS_PAGE_SIZE));
 

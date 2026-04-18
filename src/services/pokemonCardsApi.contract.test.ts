@@ -52,17 +52,17 @@ describe('fetchPokemonCards', () => {
       const url = requestUrl(input);
 
       if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
-        expect(url).toContain('dexId=4');
+        expect(url).toContain('dexId=eq%3A4');
         return Promise.resolve(asResponse([{ id: 'shared-1' }]));
       }
 
       if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
-        expect(url).toContain('dexId=4');
+        expect(url).toContain('dexId=eq%3A4');
         return Promise.resolve(asResponse([{ id: 'shared-1' }]));
       }
 
       if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
-        expect(url).toContain('dexId=4');
+        expect(url).toContain('dexId=eq%3A4');
         return Promise.resolve(asResponse([{ id: 'ja-only-1' }]));
       }
 
@@ -414,5 +414,112 @@ describe('fetchPokemonCards', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(fetchPokemonCards(4)).resolves.toEqual([]);
+  });
+
+  it('keeps cards from healthy languages when one language detail flow fails', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
+        return Promise.resolve(asResponse([{ id: 'broken-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([{ id: 'shared-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.endsWith('/de/cards/broken-1')) {
+        return Promise.resolve(asResponse({ message: 'boom' }, { status: 500 }));
+      }
+
+      if (url.endsWith('/en/cards/shared-1')) {
+        return Promise.resolve(
+          asResponse(cardDetail('shared-1', 'en', '004', 'Charmander', '151')),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCards(4)).resolves.toEqual([
+      {
+        id: 'shared-1',
+        languages: {
+          en: {
+            id: 'shared-1',
+            language: 'en',
+            name: 'Charmander',
+            localId: '004',
+            image: null,
+            dexIds: [4],
+            set: {
+              id: 'sv03.5',
+              name: '151',
+              logo: 'https://assets.tcgdex.net/en/sv/sv03.5/logo',
+            },
+            category: 'Pokémon',
+            rarity: 'Häufig',
+          },
+        },
+      },
+    ]);
+  });
+
+  it('keeps cards from healthy languages when one language list request fails', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = requestUrl(input);
+
+      if (url.startsWith('https://api.tcgdex.net/v2/de/cards?')) {
+        return Promise.resolve(asResponse({ message: 'boom' }, { status: 500 }));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/en/cards?')) {
+        return Promise.resolve(asResponse([{ id: 'shared-1' }]));
+      }
+
+      if (url.startsWith('https://api.tcgdex.net/v2/ja/cards?')) {
+        return Promise.resolve(asResponse([]));
+      }
+
+      if (url.endsWith('/en/cards/shared-1')) {
+        return Promise.resolve(
+          asResponse(cardDetail('shared-1', 'en', '004', 'Charmander', '151')),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const cards = await fetchPokemonCards(4);
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.languages.en?.name).toBe('Charmander');
+  });
+
+  it('uses an exact dexId filter for every language list request', async () => {
+    const requestedDexIdFilters: string[] = [];
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>((input) => {
+      const url = new URL(requestUrl(input));
+
+      if (url.pathname.endsWith('/cards')) {
+        requestedDexIdFilters.push(url.searchParams.get('dexId') ?? '');
+        return Promise.resolve(asResponse([]));
+      }
+
+      return Promise.reject(new Error(`Unexpected URL ${url.toString()}`));
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPokemonCards(7)).resolves.toEqual([]);
+    expect(requestedDexIdFilters).toEqual(['eq:7', 'eq:7', 'eq:7']);
   });
 });
