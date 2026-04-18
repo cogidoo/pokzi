@@ -85,4 +85,14 @@ describe('SearchBar', () => {
       'search-help',
     );
   });
+
+  it('disables autocorrect and capitalization helpers on the search input', () => {
+    const onSubmit = vi.fn();
+    render(SearchBar, { query: '', onSubmit });
+
+    expect(screen.getByLabelText('Pokemon suchen')).toHaveAttribute('autocomplete', 'off');
+    expect(screen.getByLabelText('Pokemon suchen')).toHaveAttribute('autocorrect', 'off');
+    expect(screen.getByLabelText('Pokemon suchen')).toHaveAttribute('autocapitalize', 'off');
+    expect(screen.getByLabelText('Pokemon suchen')).toHaveAttribute('spellcheck', 'false');
+  });
 });

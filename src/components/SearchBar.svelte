@@ -62,6 +62,8 @@
         inputmode="search"
         enterkeyhint="search"
         autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
         spellcheck="false"
         aria-describedby={compact ? undefined : 'search-help'}
       />
