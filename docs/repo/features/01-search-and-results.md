@@ -45,6 +45,7 @@ The user gets immediate feedback, can refine the query without friction, and can
 - A one-character non-numeric query stays in a non-error invalid state with guidance to refine the input.
 - Keep a visible search button for confidence and accessibility, but do not require it.
 - The search input must disable browser autocomplete, autocorrect, autocapitalization, and spellcheck so German Pokemon names are not "fixed" by mobile keyboards.
+- On tight mobile landscape viewports with the search field focused, the sticky search shell must compact automatically so loading, guidance, and the first results stay visible above the on-screen keyboard.
 - Do not use a floating autocomplete dropdown.
 - While result cards are visible, the sticky header/search surface starts expanded at the top and switches to a compact state after downward list scrolling.
 - The sticky header/search surface returns to the expanded state when the user scrolls back to the top of the results page.

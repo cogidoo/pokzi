@@ -52,6 +52,8 @@
   let openedFromResults = $state(false);
   let detailTransitioning = $state(false);
   let resultsScrolled = $state(false);
+  let searchInputFocused = $state(false);
+  let forceCompactSearchForKeyboard = $state(false);
   let lastResultsScrollY = 0;
   let lastTouchY = 0;
   let searchRailElement = $state<HTMLElement | null>(null);
@@ -72,8 +74,12 @@
   const COMPACT_COLLAPSE_SCROLL_Y = 16;
   const COMPACT_EXPAND_SCROLL_Y = EXPANDED_HERO_HANDOFF_SCROLL_Y;
   const UPWARD_INTENT_WINDOW_MS = 220;
+  const KEYBOARD_CONSTRAINED_VIEWPORT_MAX_HEIGHT = 520;
+  const KEYBOARD_VIEWPORT_REDUCTION_THRESHOLD = 120;
+  const KEYBOARD_VIEWPORT_REDUCTION_RATIO = 0.22;
   let lastUpwardIntentAt = -Infinity;
   const compactSearch = $derived(uiState === 'success' && results.length > 0 && resultsScrolled);
+  const searchShellCompact = $derived(compactSearch || forceCompactSearchForKeyboard);
   const visibleDetailCards = $derived.by(() => mapVisibleDetailCards(detailCards));
 
   /**
@@ -83,6 +89,15 @@
    */
   function isSearchResultsContext(): boolean {
     return route.kind === 'search' && uiState === 'success' && results.length > 0;
+  }
+
+  /**
+   * Checks whether the search flow is active enough that compacting the shell helps.
+   *
+   * @returns True when search feedback or results are currently relevant on screen.
+   */
+  function isSearchFeedbackContext(): boolean {
+    return route.kind === 'search' && uiState !== 'idle';
   }
 
   /**
@@ -416,6 +431,57 @@
   }
 
   /**
+   * Updates local focus state for the primary search input.
+   *
+   * @param focused - Current focus state reported by the search field.
+   */
+  function onSearchFocusChange(focused: boolean) {
+    searchInputFocused = focused;
+  }
+
+  /**
+   * Detects whether the visible viewport is strongly reduced by a mobile keyboard in landscape.
+   *
+   * @returns True when the keyboard is likely covering a large share of the screen.
+   */
+  function isKeyboardConstrainedLandscapeViewport(): boolean {
+    const visibleViewport = window.visualViewport;
+    const layoutWidth = Math.max(window.innerWidth, 0);
+    const layoutHeight = Math.max(window.innerHeight, 0);
+    const visibleWidth = Math.max(visibleViewport?.width ?? layoutWidth, 0);
+    const visibleHeight = Math.max(visibleViewport?.height ?? layoutHeight, 0);
+
+    if (visibleWidth <= visibleHeight || visibleHeight === 0) {
+      return false;
+    }
+
+    const heightReduction = Math.max(layoutHeight - visibleHeight, 0);
+    const ratioThreshold = layoutHeight * KEYBOARD_VIEWPORT_REDUCTION_RATIO;
+
+    return (
+      visibleHeight <= KEYBOARD_CONSTRAINED_VIEWPORT_MAX_HEIGHT &&
+      heightReduction >= Math.max(KEYBOARD_VIEWPORT_REDUCTION_THRESHOLD, ratioThreshold)
+    );
+  }
+
+  /**
+   * Syncs temporary compact mode for tight mobile keyboard viewports.
+   */
+  function syncKeyboardAwareSearchLayout() {
+    const shouldForceCompact =
+      searchInputFocused && isSearchFeedbackContext() && isKeyboardConstrainedLandscapeViewport();
+    const changed = shouldForceCompact !== forceCompactSearchForKeyboard;
+
+    forceCompactSearchForKeyboard = shouldForceCompact;
+
+    if (!changed || shouldForceCompact) {
+      return;
+    }
+
+    reconcileResultsScrollState();
+  }
+
+  /**
    * Applies a stable compact/expanded state based on vertical scroll position.
    * Uses a small hysteresis so the header does not flicker near the threshold.
    */
@@ -425,6 +491,11 @@
     }
 
     const scrollY = Math.max(window.scrollY, 0);
+    if (forceCompactSearchForKeyboard) {
+      lastResultsScrollY = scrollY;
+      return;
+    }
+
     const isScrollingDown = scrollY > lastResultsScrollY;
     const isScrollingUp = scrollY < lastResultsScrollY;
 
@@ -439,6 +510,29 @@
       queueExpandedSearchAlignment();
     }
 
+    lastResultsScrollY = scrollY;
+  }
+
+  /**
+   * Recomputes compact vs. expanded state from the current page position without requiring scroll delta.
+   * Used after temporary keyboard-driven compaction ends.
+   */
+  function reconcileResultsScrollState() {
+    if (!isSearchResultsContext()) {
+      return;
+    }
+
+    const scrollY = Math.max(window.scrollY, 0);
+    const canExpandAtTop = isSearchResultsPageScrollable() || hasRecentUpwardIntent();
+
+    if (scrollY <= COMPACT_EXPAND_SCROLL_Y && canExpandAtTop) {
+      resultsScrolled = false;
+      lastResultsScrollY = scrollY;
+      queueExpandedSearchAlignment();
+      return;
+    }
+
+    resultsScrolled = shouldCompactResultsHeader(scrollY);
     lastResultsScrollY = scrollY;
   }
 
@@ -571,6 +665,7 @@
    */
   function onWindowResize() {
     syncResultsScrollState();
+    syncKeyboardAwareSearchLayout();
   }
 
   /**
@@ -789,6 +884,29 @@
   });
 
   $effect(() => {
+    syncKeyboardAwareSearchLayout();
+  });
+
+  $effect(() => {
+    const visibleViewport = window.visualViewport;
+    if (!visibleViewport) {
+      return;
+    }
+
+    const onViewportChange = () => {
+      syncKeyboardAwareSearchLayout();
+    };
+
+    visibleViewport.addEventListener('resize', onViewportChange);
+    visibleViewport.addEventListener('scroll', onViewportChange);
+
+    return () => {
+      visibleViewport.removeEventListener('resize', onViewportChange);
+      visibleViewport.removeEventListener('scroll', onViewportChange);
+    };
+  });
+
+  $effect(() => {
     if (route.kind !== 'detail') {
       lastDetailRouteId = null;
       detailCards = [];
@@ -822,10 +940,12 @@
   {#if route.kind === 'search'}
     <section
       bind:this={searchRailElement}
-      class={`app__search-rail ${isSearchResultsContext() ? 'app__search-rail--results' : ''} ${compactSearch ? 'app__search-rail--compact' : ''}`}
+      class={`app__search-rail ${isSearchResultsContext() ? 'app__search-rail--results' : ''} ${searchShellCompact ? 'app__search-rail--compact' : ''} ${forceCompactSearchForKeyboard ? 'app__search-rail--keyboard-open' : ''}`}
     >
       <div bind:this={searchShellElement} class="app__search-shell">
-        <header class={`app__header ${compactSearch ? 'app__header--compact' : ''}`}>
+        <header
+          class={`app__header ${searchShellCompact ? 'app__header--compact' : ''} ${forceCompactSearchForKeyboard ? 'app__header--keyboard-open' : ''}`}
+        >
           <h1 class="app__title">Pokemon entdecken</h1>
         </header>
 
@@ -833,7 +953,8 @@
           <SearchBar
             bind:query
             submitDisabled={uiState === 'loading'}
-            compact={compactSearch}
+            compact={searchShellCompact}
+            onFocusChange={onSearchFocusChange}
             onSubmit={onManualSubmit}
           />
         </section>

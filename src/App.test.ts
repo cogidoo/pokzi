@@ -72,6 +72,60 @@ function setPageHeights(scrollHeight: number, innerHeight: number) {
 }
 
 /**
+ * Sets simulated viewport dimensions for responsive and keyboard-constrained tests.
+ *
+ * @param innerWidth - Layout viewport width.
+ * @param innerHeight - Layout viewport height.
+ */
+function setViewportSize(innerWidth: number, innerHeight: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: innerWidth,
+  });
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: innerHeight,
+  });
+}
+
+/**
+ * Creates a mutable visual viewport stub with event support.
+ *
+ * @param width - Visible viewport width.
+ * @param height - Visible viewport height.
+ * @returns Stubbed visual viewport object used by the app.
+ */
+function installVisualViewport(width: number, height: number): VisualViewport {
+  const eventTarget = new EventTarget();
+  const visualViewport = {
+    width,
+    height,
+    offsetLeft: 0,
+    offsetTop: 0,
+    pageLeft: 0,
+    pageTop: 0,
+    scale: 1,
+    addEventListener: eventTarget.addEventListener.bind(eventTarget),
+    removeEventListener: eventTarget.removeEventListener.bind(eventTarget),
+    dispatchEvent: eventTarget.dispatchEvent.bind(eventTarget),
+  } as unknown as VisualViewport;
+
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: visualViewport,
+  });
+
+  return visualViewport;
+}
+
+function removeVisualViewport() {
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: undefined,
+  });
+}
+
+/**
  * Dispatches a minimal touch event with one touch point for jsdom interaction tests.
  *
  * @param type - Native touch event type.
@@ -220,7 +274,9 @@ describe('App', () => {
     fetchPokemonCardsMock.mockResolvedValue([]);
     window.history.pushState({}, '', '/');
     setScrollY(0);
+    setViewportSize(800, 800);
     setPageHeights(1600, 800);
+    installVisualViewport(800, 800);
   });
 
   afterEach(() => {
@@ -312,6 +368,196 @@ describe('App', () => {
     });
 
     expectExpandedSearchHeader(container);
+  });
+
+  it('temporarily compacts the search shell when the mobile landscape keyboard constrains the viewport', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    setViewportSize(844, 390);
+    const visualViewport = installVisualViewport(844, 240);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+    expectExpandedSearchHeader(container);
+
+    await fireEvent.focus(screen.getByLabelText('Pokemon suchen'));
+    await Promise.resolve();
+
+    expectCompactSearchHeader(container);
+    expect(container.querySelector('.app__search-rail--keyboard-open')).not.toBeNull();
+    expect(screen.queryByText(/Mindestens 2 Buchstaben/)).not.toBeInTheDocument();
+
+    Object.assign(visualViewport, { width: 844, height: 390 });
+    visualViewport.dispatchEvent(new Event('resize'));
+    await Promise.resolve();
+
+    expectExpandedSearchHeader(container);
+  });
+
+  it('does not force compact mode for portrait keyboard-sized viewports', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    setViewportSize(390, 844);
+    installVisualViewport(240, 390);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    await fireEvent.focus(screen.getByLabelText('Pokemon suchen'));
+    await Promise.resolve();
+
+    expectExpandedSearchHeader(container);
+    expect(container.querySelector('.app__search-rail--keyboard-open')).toBeNull();
+  });
+
+  it('falls back cleanly when visualViewport is unavailable', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    setViewportSize(844, 390);
+    removeVisualViewport();
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    await fireEvent.focus(screen.getByLabelText('Pokemon suchen'));
+    await Promise.resolve();
+
+    expectExpandedSearchHeader(container);
+    expect(container.querySelector('.app__search-rail--keyboard-open')).toBeNull();
+  });
+
+  it('reconciles back to the real scroll state after keyboard-driven compaction ends', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    setViewportSize(844, 390);
+    const visualViewport = installVisualViewport(844, 390);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expectCompactSearchHeader(container);
+
+    await fireEvent.focus(screen.getByLabelText('Pokemon suchen'));
+    Object.assign(visualViewport, { width: 844, height: 240 });
+    visualViewport.dispatchEvent(new Event('resize'));
+    await Promise.resolve();
+    expectCompactSearchHeader(container);
+
+    setScrollY(0);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expectCompactSearchHeader(container);
+
+    Object.assign(visualViewport, { width: 844, height: 390 });
+    visualViewport.dispatchEvent(new Event('resize'));
+    await Promise.resolve();
+
+    expectExpandedSearchHeader(container);
+  });
+
+  it('stays compact after keyboard-driven compaction ends when scroll position still requires it', async () => {
+    searchPokemonMock.mockResolvedValueOnce([
+      {
+        id: 25,
+        name: 'pikachu',
+        displayName: 'Pikachu',
+        image: 'https://img/pikachu.png',
+        types: [{ name: 'Elektro' }],
+        evolutionStage: 'Phase 1',
+      },
+    ]);
+    setViewportSize(844, 390);
+    const visualViewport = installVisualViewport(844, 390);
+    const { container } = render(App);
+
+    await fireEvent.input(screen.getByLabelText('Pokemon suchen'), {
+      target: { value: 'pikachu' },
+    });
+    vi.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suchergebnisse' })).toBeInTheDocument();
+    });
+
+    setScrollY(80);
+    window.dispatchEvent(new Event('scroll'));
+    await Promise.resolve();
+    expectCompactSearchHeader(container);
+
+    await fireEvent.focus(screen.getByLabelText('Pokemon suchen'));
+    Object.assign(visualViewport, { width: 844, height: 240 });
+    visualViewport.dispatchEvent(new Event('resize'));
+    await Promise.resolve();
+    expectCompactSearchHeader(container);
+
+    Object.assign(visualViewport, { width: 844, height: 390 });
+    visualViewport.dispatchEvent(new Event('resize'));
+    await Promise.resolve();
+
+    expectCompactSearchHeader(container);
   });
 
   it('compacts on downward scroll in results and expands again near top', async () => {

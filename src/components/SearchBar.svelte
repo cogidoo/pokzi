@@ -11,6 +11,7 @@
     query?: string;
     submitDisabled?: boolean;
     compact?: boolean;
+    onFocusChange?: (focused: boolean) => void;
     onSubmit: () => void;
   }
 
@@ -18,6 +19,7 @@
     query = $bindable(''),
     submitDisabled = false,
     compact = false,
+    onFocusChange,
     onSubmit,
   }: Props = $props();
 
@@ -47,6 +49,15 @@
     event.preventDefault();
     clearQuery();
   }
+
+  /**
+   * Notifies the parent when the search input focus changes.
+   *
+   * @param focused - Current focus state of the search input.
+   */
+  function updateFocusState(focused: boolean) {
+    onFocusChange?.(focused);
+  }
 </script>
 
 <form class={`search ${compact ? 'search--compact' : ''}`} onsubmit={submit}>
@@ -65,6 +76,12 @@
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
+        onfocus={() => {
+          updateFocusState(true);
+        }}
+        onblur={() => {
+          updateFocusState(false);
+        }}
         aria-describedby={compact ? undefined : 'search-help'}
       />
       {#if query.length > 0}
