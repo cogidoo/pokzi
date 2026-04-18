@@ -963,15 +963,15 @@ test('Such-Hero bleibt bei Ergebnissen eine normale runde Karte', async ({ page 
     .poll(async () => shell.evaluate((element) => getComputedStyle(element).borderBottomLeftRadius))
     .not.toBe('0px');
   await expect
-    .poll(async () => shell.evaluate((element) => getComputedStyle(element).borderBottomRightRadius))
+    .poll(async () =>
+      shell.evaluate((element) => getComputedStyle(element).borderBottomRightRadius),
+    )
     .not.toBe('0px');
   await expect(page.locator('.app__search-rail')).toHaveCount(0);
   await expect(page.locator('.app__header--compact')).toHaveCount(0);
 });
 
-test('Such-Hero scrollt mit der Seite weg und Clear-Button bleibt stabil', async ({
-  page,
-}) => {
+test('Such-Hero scrollt mit der Seite weg und Clear-Button bleibt stabil', async ({ page }) => {
   await routeTextSearchScrollable(page);
   await page.setViewportSize({ width: 390, height: 640 });
   await page.goto('/');

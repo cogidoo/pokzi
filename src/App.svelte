@@ -569,10 +569,7 @@
   });
 </script>
 
-<svelte:window
-  onpopstate={onLocationChange}
-  onhashchange={onLocationChange}
-/>
+<svelte:window onpopstate={onLocationChange} onhashchange={onLocationChange} />
 
 <main class="app">
   {#if route.kind === 'search'}
@@ -584,11 +581,7 @@
         </header>
 
         <section class="app__search">
-          <SearchBar
-            bind:query
-            submitDisabled={uiState === 'loading'}
-            onSubmit={onManualSubmit}
-          />
+          <SearchBar bind:query submitDisabled={uiState === 'loading'} onSubmit={onManualSubmit} />
         </section>
       </div>
     </section>

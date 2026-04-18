@@ -13,11 +13,7 @@
     onSubmit: () => void;
   }
 
-  let {
-    query = $bindable(''),
-    submitDisabled = false,
-    onSubmit,
-  }: Props = $props();
+  let { query = $bindable(''), submitDisabled = false, onSubmit }: Props = $props();
 
   /**
    * Forwards form submit events to the parent callback.
@@ -45,7 +41,6 @@
     event.preventDefault();
     clearQuery();
   }
-
 </script>
 
 <form class="search" onsubmit={submit}>
