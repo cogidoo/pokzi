@@ -45,11 +45,7 @@ The user gets immediate feedback, can refine the query without friction, and can
 - A one-character non-numeric query stays in a non-error invalid state with guidance to refine the input.
 - Keep a visible search button for confidence and accessibility, but do not require it.
 - The search input must disable browser autocomplete, autocorrect, autocapitalization, and spellcheck so German Pokemon names are not "fixed" by mobile keyboards.
-- On tight mobile landscape viewports with the search field focused, the sticky search shell must compact automatically so loading, guidance, and the first results stay visible above the on-screen keyboard.
 - Do not use a floating autocomplete dropdown.
-- While result cards are visible, the sticky header/search surface starts expanded at the top and switches to a compact state after downward list scrolling.
-- The sticky header/search surface returns to the expanded state when the user scrolls back to the top of the results page.
-- If compact mode makes the page no longer vertically scrollable (borderline list length), an upward scroll intent (mouse wheel up or touch swipe down) must expand the header/search surface again even without native scroll delta.
 
 ## Query Rules
 
@@ -114,28 +110,25 @@ Implementation notes:
 - The header should feel like a compact discovery intro, not like a generic form page.
 - Use a single visible headline above the search surface.
 - Do not pair the headline with an additional eyebrow and explanatory subheadline on the start screen.
-- If the visible field label is removed for compactness, preserve an accessible label on the input and keep the placeholder/helper copy short and explicit.
-- Keep the headline and helper copy short enough that the first result can still appear quickly below the sticky search area.
+- If the visible field label is removed for compactness, preserve an accessible label on the input and keep the placeholder short and explicit.
+- Keep the headline and the search surface compact enough that the first result can appear quickly below it.
 - The search surface should visually read as the primary object on the screen before results are shown.
 - Avoid stacking multiple equally prominent containers above the first result.
+- The helper sentence about minimum input length belongs in the neutral or invalid feedback card below the search surface, not as persistent text under the input.
 
 ### Search With Results Composition
 
-- Sticky search remains visible while scrolling results.
-- Results begin immediately below the search area with a clear vertical rhythm.
+- The rounded search hero stays at the top of the document flow and scrolls away naturally with the page.
+- Results begin immediately below the search hero with a clear vertical rhythm.
 - The first card should be visible quickly after searching, without a large dead zone.
 - Once results are shown, explanatory text should reduce and scanability should increase.
-- The search header and helper chrome must compact only after the user has scrolled down in the results view.
-- Returning to page top (`scrollY` near `0`) must restore the expanded header state.
 
 Implementation notes:
 
-- Compact mode should reduce helper and header weight without making the page feel like a different screen.
-- Preserve enough spacing below the sticky search so the first card never feels clipped or trapped under the header.
-- The sticky surface should remain visually connected to the results list rather than floating like a separate toolbar.
-- Treat the sticky surface as one opaque discovery panel so results disappear beneath a clean lower boundary instead of shimmering through the shell.
-- The expanded search panel may stay softly rounded, but the compact sticky state should anchor flush to the top edge so the upper boundary reads as fully closed and stable while scrolling.
-- During downward scroll, the rounded expanded panel should glide upward first; compact top-flush mode should begin only after that rounded cap has effectively left the visible top edge, and the lower boundary should read as a soft mask rather than a hard divider line.
+- Use one stable hero layout across start, loading, invalid, empty, and results states.
+- Avoid sticky, compact, keyboard-aware, or scroll-threshold variants for the search hero.
+- Keep all four corners rounded on the search hero at every viewport size.
+- Preserve enough spacing below the hero so the first card never feels clipped.
 
 ### Result Card Visual Priority
 
@@ -172,18 +165,14 @@ Implementation notes:
 
 - Search area is clearly dominant and touch-safe.
 - Search field and submit button meet the touch-size rules from `DESIGN_BRIEF.md`.
-- Search remains understandable in both expanded and compact states.
-- Sticky search does not cover content awkwardly while scrolling.
+- Search remains understandable without secondary compact states.
 - Results render as one clear vertical list of tap-safe cards.
 - Card pressed and focus states are visible without noisy motion.
 - Loading, invalid, no-results, and error states are visually distinct but structurally consistent.
-- Tolerant-only hint appears in a consistent location without pushing the first result too far below the sticky search area.
+- Tolerant-only hint appears in a consistent location and keeps the first result close enough for quick scanning.
 - The first visible result appears quickly below the search area without excessive empty space.
 - Search UI reads as a discovery surface rather than a generic utility form.
 - Result cards are glanceable in this order: artwork, name, then supporting metadata.
-- Expanded header state is shown when results are present but the user is at the top of the page.
-- Compact header state is shown only after downward scrolling in the results view and resets to expanded at top.
-- In non-scrollable compact edge cases, an explicit upward intent still expands the header.
 
 ## Acceptance Criteria
 

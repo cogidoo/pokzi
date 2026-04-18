@@ -10,17 +10,28 @@
   interface Props {
     title: string;
     message: string;
+    details?: string | null;
     actionLabel?: string | null;
     onAction?: (() => void) | null;
     tone?: 'neutral' | 'info' | 'warning' | 'error';
   }
 
-  let { title, message, actionLabel = null, onAction = null, tone = 'neutral' }: Props = $props();
+  let {
+    title,
+    message,
+    details = null,
+    actionLabel = null,
+    onAction = null,
+    tone = 'neutral',
+  }: Props = $props();
 </script>
 
 <section class={`state state--${tone}`} role="status" aria-live="polite">
   <h2 class="state__title">{title}</h2>
   <p class="state__message">{message}</p>
+  {#if details}
+    <p class="state__details">{details}</p>
+  {/if}
   {#if actionLabel && onAction}
     <button class="state__action" type="button" onclick={onAction}>{actionLabel}</button>
   {/if}

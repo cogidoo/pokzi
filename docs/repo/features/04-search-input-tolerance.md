@@ -76,7 +76,7 @@ Search stays forgiving and confidence-building for touch keyboard input, even wh
 
 - Result list may include tolerant matches only when exact/partial quality is insufficient.
 - Exact, prefix partial, and substring partial matches always stay ahead of tolerant typo matches.
-- If results are tolerant-only, show one refinement hint directly above the results list and below the sticky search area.
+- If results are tolerant-only, show one refinement hint directly above the results list and below the search hero.
 - If at least one exact or partial match exists, do not show the tolerant-only refinement hint.
 
 ## UX/UI Handoff
@@ -84,9 +84,9 @@ Search stays forgiving and confidence-building for touch keyboard input, even wh
 ### Tolerant-Only Hint Placement
 
 - Use the existing calm state/notice styling family from the search screen.
-- Place the hint between the sticky search surface and the first result card.
+- Place the hint between the search hero and the first result card.
 - Keep one-line priority on iPad widths; allow wrapping on smaller widths without truncating words.
-- Keep spacing compact so the first card still appears quickly below the sticky area.
+- Keep spacing compact so the first card still appears quickly below the hero.
 
 ### Tolerant-Only Hint Visual Behavior
 

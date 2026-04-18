@@ -736,83 +736,6 @@ async function routeTextSearchScrollable(page: Page) {
   await routeTextSearchWithCount(page, 12);
 }
 
-async function routeStickyOpaqueSurfaceFu(page: Page) {
-  const ids = [58, 619, 631, 727, 913, 1021];
-
-  await page.route('https://pokeapi.co/api/v2/**', async (route) => {
-    const url = new URL(route.request().url());
-    const path = url.pathname;
-
-    if (path === '/api/v2/pokemon-species' && url.searchParams.get('limit') === '1400') {
-      return json(route, {
-        results: ids.map((id) => ({
-          name: `fu-${String(id)}`,
-          url: `https://pokeapi.co/api/v2/pokemon-species/${String(id)}/`,
-        })),
-      });
-    }
-
-    const speciesMatch = /^\/api\/v2\/pokemon-species\/(\d+)\/?$/.exec(path);
-    if (speciesMatch) {
-      const id = Number(speciesMatch[1]);
-      if (!ids.includes(id)) {
-        return json(route, {}, 404);
-      }
-
-      return json(route, {
-        names: [
-          { language: { name: 'en' }, name: `Fu ${String(id)}` },
-          { language: { name: 'de' }, name: `Fu ${String(id)}` },
-        ],
-        evolution_chain: {
-          url: `https://pokeapi.co/api/v2/evolution-chain/${String(id)}/`,
-        },
-      });
-    }
-
-    const pokemonMatch = /^\/api\/v2\/pokemon\/(\d+)\/?$/.exec(path);
-    if (pokemonMatch) {
-      const id = Number(pokemonMatch[1]);
-      if (!ids.includes(id)) {
-        return json(route, {}, 404);
-      }
-
-      return json(route, {
-        id,
-        name: `fu-${String(id)}`,
-        height: 6,
-        weight: 80,
-        sprites: {
-          other: {
-            'official-artwork': { front_default: `https://img.test/fu-${String(id)}.png` },
-          },
-        },
-        types: [{ type: { name: 'fire' } }],
-      });
-    }
-
-    const evolutionMatch = /^\/api\/v2\/evolution-chain\/(\d+)\/?$/.exec(path);
-    if (evolutionMatch) {
-      const id = Number(evolutionMatch[1]);
-      if (!ids.includes(id)) {
-        return json(route, {}, 404);
-      }
-
-      return json(route, {
-        chain: {
-          species: {
-            name: `fu-${String(id)}`,
-            url: `https://pokeapi.co/api/v2/pokemon-species/${String(id)}/`,
-          },
-          evolves_to: [],
-        },
-      });
-    }
-
-    return json(route, {}, 404);
-  });
-}
-
 test('zeigt initialen Such-Hinweis', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Suche starten' })).toBeVisible();
@@ -1018,7 +941,7 @@ test('Fehlgeschlagener Evolutionswechsel hält URL und sichtbare Details synchro
   await expect(page).toHaveURL(/#\/pokemon\/25$/);
 });
 
-test('Such-Header wird beim Scrollen kompakt', async ({ page }) => {
+test('Such-Hero bleibt bei Ergebnissen eine normale runde Karte', async ({ page }) => {
   await routeTextSearchScrollable(page);
   await page.setViewportSize({ width: 390, height: 640 });
   await page.goto('/');
@@ -1027,137 +950,26 @@ test('Such-Header wird beim Scrollen kompakt', async ({ page }) => {
   await page.getByRole('button', { name: 'Suchen' }).click();
   await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
 
-  const compactHeader = page.locator('.app__header--compact');
   await expect(page.getByRole('heading', { name: 'Pokemon entdecken' })).toBeVisible();
-
-  await page.evaluate(() => {
-    window.scrollTo(0, 500);
-    window.dispatchEvent(new Event('scroll'));
-  });
-  await expect(compactHeader).toHaveCount(1);
-});
-
-test('Sticky-Suchfläche bleibt als opake Surface mit sauberem Handoff stabil', async ({ page }) => {
-  await routeStickyOpaqueSurfaceFu(page);
-  await page.setViewportSize({ width: 390, height: 640 });
-  await page.goto('/');
-
-  await page.getByLabel('Pokemon suchen').fill('fu');
-  await page.getByRole('button', { name: 'Suchen' }).click();
-
-  await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
-  await expect(page.locator('.result-list .card').first()).toBeVisible();
-
-  let sawExpandedClippedTop = false;
-  for (let index = 0; index < 8; index += 1) {
-    const compactCount = await page.locator('.app__header--compact').count();
-    if (compactCount > 0) {
-      break;
-    }
-
-    const shellTop = await page.locator('.app__search-shell').evaluate((el) => {
-      return el.getBoundingClientRect().top;
-    });
-    if (shellTop <= 0) {
-      sawExpandedClippedTop = true;
-    }
-
-    await page.evaluate(() => {
-      window.scrollBy(0, 10);
-      window.dispatchEvent(new Event('scroll'));
-    });
-    await page.waitForTimeout(20);
-  }
-
-  for (let index = 0; index < 12; index += 1) {
-    if ((await page.locator('.app__header--compact').count()) > 0) {
-      break;
-    }
-    await page.evaluate(() => {
-      window.scrollBy(0, 20);
-      window.dispatchEvent(new Event('scroll'));
-    });
-    await page.waitForTimeout(20);
-  }
-
-  const compactHeader = page.locator('.app__header--compact');
-  await expect(compactHeader).toHaveCount(1);
-  expect(sawExpandedClippedTop).toBe(true);
-
-  const rail = page.locator('.app__search-rail');
   const shell = page.locator('.app__search-shell');
-  const header = page.locator('.app__header');
-  const search = page.locator('.search');
-  const submit = page.getByRole('button', { name: 'Suchen' });
-
-  await expect(rail).toHaveCount(1);
   await expect(shell).toHaveCount(1);
-
   await expect
-    .poll(async () => rail.evaluate((el) => getComputedStyle(el).backgroundImage))
-    .toBe('none');
-  await expect
-    .poll(async () => rail.evaluate((el) => getComputedStyle(el).overflow))
-    .toBe('visible');
-  await expect
-    .poll(async () => shell.evaluate((el) => getComputedStyle(el, '::after').backgroundColor))
-    .not.toBe('rgba(0, 0, 0, 0)');
-  await expect
-    .poll(async () => shell.evaluate((el) => getComputedStyle(el, '::after').height))
+    .poll(async () => shell.evaluate((element) => getComputedStyle(element).borderTopLeftRadius))
     .not.toBe('0px');
   await expect
-    .poll(async () => shell.evaluate((el) => getComputedStyle(el, '::after').boxShadow))
-    .not.toBe('none');
+    .poll(async () => shell.evaluate((element) => getComputedStyle(element).borderTopRightRadius))
+    .not.toBe('0px');
   await expect
-    .poll(async () => shell.evaluate((el) => getComputedStyle(el).borderTopLeftRadius))
-    .toBe('0px');
+    .poll(async () => shell.evaluate((element) => getComputedStyle(element).borderBottomLeftRadius))
+    .not.toBe('0px');
   await expect
-    .poll(async () => shell.evaluate((el) => getComputedStyle(el).borderTopRightRadius))
-    .toBe('0px');
-  await expect
-    .poll(async () => header.evaluate((el) => getComputedStyle(el).backgroundColor))
-    .toBe('rgba(0, 0, 0, 0)');
-  await expect
-    .poll(async () => search.evaluate((el) => getComputedStyle(el).backgroundColor))
-    .toBe('rgba(0, 0, 0, 0)');
-  await expect
-    .poll(async () => search.evaluate((el) => getComputedStyle(el).borderTopWidth))
-    .toBe('0px');
-  await expect
-    .poll(async () => submit.evaluate((el) => getComputedStyle(el).backgroundImage))
-    .toBe('none');
-  await expect
-    .poll(async () => submit.evaluate((el) => getComputedStyle(el).backgroundColor))
-    .toBe('rgb(30, 102, 245)');
-
-  // Poll here because Chromium/WebKit can settle the compact corner hit-test one frame later.
-  await expect
-    .poll(async () =>
-      shell.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        const points = [
-          { key: 'topLeft', x: rect.left + 6, y: rect.top + 6 },
-          { key: 'topRight', x: rect.right - 6, y: rect.top + 6 },
-        ];
-
-        return Object.fromEntries(
-          points.map(({ key, x, y }) => {
-            const target = document.elementFromPoint(x, y);
-            return [key, Boolean(target && (target === element || element.contains(target)))];
-          }),
-        );
-      }),
-    )
-    .toEqual({
-      topLeft: true,
-      topRight: true,
-    });
-
-  const compactShellTop = await shell.evaluate((element) => element.getBoundingClientRect().top);
-  expect(compactShellTop).toBeLessThanOrEqual(0);
+    .poll(async () => shell.evaluate((element) => getComputedStyle(element).borderBottomRightRadius))
+    .not.toBe('0px');
+  await expect(page.locator('.app__search-rail')).toHaveCount(0);
+  await expect(page.locator('.app__header--compact')).toHaveCount(0);
 });
 
-test('Langsames Scrollen bleibt stabil und Clear-Button funktioniert auch im kompakten Header', async ({
+test('Such-Hero scrollt mit der Seite weg und Clear-Button bleibt stabil', async ({
   page,
 }) => {
   await routeTextSearchScrollable(page);
@@ -1169,69 +981,20 @@ test('Langsames Scrollen bleibt stabil und Clear-Button funktioniert auch im kom
   await page.getByRole('button', { name: 'Suchen' }).click();
   await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
 
-  const compactHeader = page.locator('.app__header--compact');
+  const shell = page.locator('.app__search-shell');
+  const initialTop = await shell.evaluate((element) => element.getBoundingClientRect().top);
+
   await page.evaluate(() => {
     window.scrollTo(0, 500);
   });
-  await expect(compactHeader).toHaveCount(1);
+
+  const scrolledTop = await shell.evaluate((element) => element.getBoundingClientRect().top);
+  expect(initialTop).toBeGreaterThanOrEqual(0);
+  expect(scrolledTop).toBeLessThan(initialTop);
+  expect(scrolledTop).toBeLessThan(0);
+  await expect(page.locator('.app__header--compact')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Suche leeren' }).click();
   await expect(searchInput).toHaveValue('');
   await expect(page.getByRole('heading', { name: 'Suche starten' })).toBeVisible();
-
-  for (let index = 0; index < 30; index += 1) {
-    await page.evaluate(() => {
-      window.scrollBy(0, -8);
-    });
-    await page.waitForTimeout(25);
-  }
-  await expect.poll(() => compactHeader.count()).toBe(0);
-});
-
-test('Header bleibt nicht im kompakten Zustand haengen, wenn die Liste nach Collapse nicht mehr scrollbar ist', async ({
-  page,
-}) => {
-  await routeTextSearchScrollable(page);
-  await page.setViewportSize({ width: 390, height: 640 });
-  await page.goto('/');
-
-  await page.getByLabel('Pokemon suchen').fill('ka');
-  await page.getByRole('button', { name: 'Suchen' }).click();
-  await expect(page.getByRole('list', { name: 'Suchergebnisse' })).toBeVisible();
-
-  const compactHeader = page.locator('.app__header--compact');
-  const getScrollableDistance = async () =>
-    page.evaluate(() => {
-      const root = document.scrollingElement ?? document.documentElement;
-      return root.scrollHeight - window.innerHeight;
-    });
-
-  await expect.poll(getScrollableDistance).toBeGreaterThan(0);
-
-  await page.evaluate(() => {
-    window.scrollTo(0, 120);
-    window.dispatchEvent(new Event('scroll'));
-  });
-  await expect(compactHeader).toHaveCount(1);
-
-  await page.evaluate(() => {
-    const list = document.querySelector('.result-list');
-    if (list instanceof HTMLElement) {
-      list.style.maxHeight = '0px';
-      list.style.overflow = 'hidden';
-    }
-    window.dispatchEvent(new Event('resize'));
-  });
-  await expect.poll(getScrollableDistance).toBeLessThanOrEqual(1);
-  await expect(compactHeader).toHaveCount(1);
-
-  await page.evaluate(() => {
-    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 40 }));
-  });
-  await expect(compactHeader).toHaveCount(1);
-
-  await page.evaluate(() => {
-    window.dispatchEvent(new WheelEvent('wheel', { deltaY: -40 }));
-  });
-  await expect.poll(() => compactHeader.count()).toBe(0);
 });

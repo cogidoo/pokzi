@@ -67,23 +67,12 @@ describe('SearchBar', () => {
     expect(screen.getByRole('button', { name: 'Suchen' })).toBeDisabled();
   });
 
-  it('hides helper text and aria-describedby in compact mode', () => {
+  it('does not render helper text directly under the input', () => {
     const onSubmit = vi.fn();
-    render(SearchBar, { query: 'pikachu', compact: true, onSubmit });
+    render(SearchBar, { query: '', onSubmit });
 
     expect(screen.queryByText(/Mindestens 2 Buchstaben/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('Pokemon suchen')).not.toHaveAttribute('aria-describedby');
-  });
-
-  it('shows helper text and aria-describedby outside compact mode', () => {
-    const onSubmit = vi.fn();
-    render(SearchBar, { query: '', compact: false, onSubmit });
-
-    expect(screen.getByText(/Mindestens 2 Buchstaben/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Pokemon suchen')).toHaveAttribute(
-      'aria-describedby',
-      'search-help',
-    );
   });
 
   it('disables autocorrect and capitalization helpers on the search input', () => {

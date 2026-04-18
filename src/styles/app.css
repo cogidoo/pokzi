@@ -32,105 +32,43 @@ input:focus-visible {
 }
 
 .app {
-  --app-top-padding: var(--space-5);
   width: min(760px, 100%);
   margin: 0 auto;
   padding: var(--space-5) var(--space-4) var(--space-6);
 }
 
-.app__search-rail {
-  --search-shell-radius-top: 28px;
-  --search-shell-radius-bottom: var(--radius-card);
-  --search-shell-boundary-height: 6px;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  margin-bottom: var(--space-4);
-  padding: 0;
-  background: none;
-  border-radius: 0;
-  overflow: visible;
-  transform: translateY(0);
-  overflow-anchor: none;
-}
-
-.app__search-rail--results {
-  top: calc((var(--app-top-padding) + var(--search-shell-radius-top)) * -1);
-}
-
 .app__search-shell {
+  margin-bottom: var(--space-4);
   position: relative;
-  overflow: clip;
-  border-radius: var(--search-shell-radius-top) var(--search-shell-radius-top)
-    var(--search-shell-radius-bottom) var(--search-shell-radius-bottom);
+  overflow: hidden;
+  border-radius: 28px;
   background: #f7fafc;
   box-shadow: var(--shadow-card);
-  padding-bottom: var(--search-shell-boundary-height);
-  transform: translateZ(0);
-  overflow-anchor: none;
+  border: 1px solid rgba(214, 224, 240, 0.92);
 }
 
-.app__search-rail--compact {
-  --search-shell-boundary-height: 4px;
-  top: 0;
+.app__search-shell-accent {
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
 }
 
-.app__search-rail--compact .app__search-shell {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  box-shadow: 0 6px 16px rgba(21, 34, 56, 0.06);
-}
-
-.app__search-shell::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: var(--search-shell-boundary-height);
-  background: #f7fafc;
-  box-shadow:
-    inset 0 1px 0 rgba(214, 224, 240, 0.22),
-    0 -4px 10px rgba(247, 250, 252, 0.95);
-  pointer-events: none;
+.app__search-shell-body {
+  padding: var(--space-3);
 }
 
 .app__header {
   display: grid;
-  margin-bottom: var(--space-3);
-  padding: var(--space-4) var(--space-4) 0;
+  margin-bottom: var(--space-2);
+  padding: var(--space-1);
   background: transparent;
   border: 0;
   border-radius: 0;
-  overflow-anchor: none;
 }
 
 .app__title {
   margin: 0;
-  font-size: clamp(2.1rem, 5vw, 2.45rem);
+  font-size: clamp(1.7rem, 4.2vw, 2rem);
   line-height: 1.15;
-}
-
-.app__header--compact {
-  padding-top: var(--space-2);
-  margin-bottom: 0;
-}
-
-.app__header--compact .app__title {
-  font-size: clamp(1.65rem, 4vw, 1.95rem);
-}
-
-.app__search-rail--keyboard-open {
-  margin-bottom: var(--space-3);
-}
-
-.app__header--keyboard-open {
-  padding: var(--space-2) var(--space-3) 0;
-}
-
-.app__header--keyboard-open .app__title {
-  font-size: clamp(1.2rem, 3vw, 1.35rem);
-  line-height: 1.08;
 }
 
 .app__search {
@@ -143,24 +81,8 @@ input:focus-visible {
   border: 0;
   box-shadow: none;
   border-radius: 0;
-  padding: var(--space-4);
+  padding: var(--space-1);
   overflow: visible;
-}
-
-.search::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 4px;
-  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
-}
-
-.search--compact {
-  padding: var(--space-3);
-}
-
-.app__search-rail--keyboard-open .search {
-  padding: var(--space-2) var(--space-3) var(--space-3);
 }
 
 .search__controls {
@@ -476,6 +398,12 @@ input:focus-visible {
 .state__message {
   margin: var(--space-2) 0 0;
   color: var(--text-muted);
+}
+
+.state__details {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: 16px;
 }
 
 .state__action {
@@ -1029,14 +957,20 @@ input:focus-visible {
 
 @media (max-width: 560px) {
   .app {
-    --app-top-padding: var(--space-3);
     padding-left: var(--space-3);
     padding-right: var(--space-3);
   }
 
-  .app__header {
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
+  .app__search-shell {
+    border-radius: 24px;
+  }
+
+  .app__search-shell-body {
+    padding: var(--space-2);
+  }
+
+  .app__title {
+    font-size: clamp(1.55rem, 7vw, 1.8rem);
   }
 
   .card__button {
@@ -1053,6 +987,10 @@ input:focus-visible {
   .card__headline {
     flex-direction: column;
     align-items: start;
+  }
+
+  .search__submit {
+    width: 100%;
   }
 }
 

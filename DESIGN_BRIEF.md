@@ -50,7 +50,7 @@ Do not introduce:
 
 - Mobile/tablet first.
 - Single column.
-- Sticky top search area on search/results screen.
+- Rounded search hero at the top of the search/results screen.
 - Content width capped for readability.
 - Detail screen should feel like a clear mode switch from browsing to exploring.
 - Internal sub-grids are allowed inside a screen section when they improve scanability on iPad, but the page itself must still read as one primary column.
@@ -89,7 +89,7 @@ Recommended sizing:
 ### `768-1024px`
 
 - Keep one primary reading column centered on the page.
-- Search stays sticky and should remain visible without covering more than the top utility area.
+- Search hero stays in normal document flow and scrolls away naturally with the page.
 - Detail hero can switch to a two-column internal layout: artwork block + text/meta block.
 - Key facts can use a `2`-column internal grid.
 - Evolution summary should favor one ordered sequence that can wrap into stacked rows without losing the chronological chain order.
@@ -178,7 +178,7 @@ Implementation guidance:
 
 - Large headline + search area
 - Results as clear stacked cards
-- Search context stays visible while browsing the list
+- Search context stays obvious while browsing the list without switching into a second compact mode
 
 ### Detail Screen
 
@@ -205,26 +205,24 @@ Anatomy:
 - Input field
 - Optional inline clear action
 - Primary search button
-- Helper text in neutral start state
+- Helper guidance in the neutral or invalid state card below the search hero
 
 Interaction rules:
 
-- Neutral start may show the full helper text.
-- Once the user starts interacting or results are visible, the search area may compact slightly, but the search purpose, field, and submit action must remain obvious.
-- In results mode, compacting should be tied to downward scrolling and should reset to expanded when the user returns to the top.
+- Neutral start may show the full helper guidance in the state card below the search hero.
+- Keep one stable search-hero layout across start, loading, invalid, empty, and results states.
 - Clear action must not overlap typed content.
-- Sticky behavior must feel stable, not jumpy.
 
 Implementation guidance:
 
 - Prefer `type="search"` semantics and a search-oriented keyboard/input experience when possible.
 - The full search area should read as one primary interaction zone, not as separate unrelated controls.
 - The search input must keep a programmatic label even when the visible layout hides the label in favor of a tighter composition.
-- In compact mode, reduce explanatory chrome before reducing the perceived importance of the search field.
 - Keep the search field visually stronger than the submit button; the button supports confidence, but the field remains the main control.
 - Placeholder text should stay short enough to scan instantly.
 - The clear action should look secondary but still touch-safe and obvious for children.
 - Do not add autocomplete dropdowns or suggestion pills unless repo scope expands explicitly.
+- Avoid scroll-threshold resizing, sticky-mode switching, or keyboard-specific hero variants for the search surface.
 
 ### Result Card
 
@@ -318,7 +316,7 @@ Global guidance for idle, loading, invalid, empty, not-found, and error states:
 
 - Motion should reinforce orientation, not decorate transitions.
 - Pressed states may use very small scale reduction and shadow decrease.
-- Sticky search transitions should feel calm and mechanically stable.
+- Search and result transitions should feel calm and mechanically stable without layout-morphing header behavior.
 - In-detail navigation should preserve the detail frame and avoid a full-layout reset sensation.
 - Respect `prefers-reduced-motion` with non-essential motion removed.
 
@@ -436,7 +434,7 @@ Usage rules:
   - Encourage immediate refinement
   - No alarming visual treatment
 - Tolerant-only success:
-  - Show one short refinement hint between sticky search and first result card
+  - Show one short refinement hint between search hero and first result card
   - Keep the hint visually lighter than error/no-results states
   - Preserve quick first-result visibility on iPad landscape
 - Error:

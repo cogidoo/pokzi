@@ -10,16 +10,12 @@
   interface Props {
     query?: string;
     submitDisabled?: boolean;
-    compact?: boolean;
-    onFocusChange?: (focused: boolean) => void;
     onSubmit: () => void;
   }
 
   let {
     query = $bindable(''),
     submitDisabled = false,
-    compact = false,
-    onFocusChange,
     onSubmit,
   }: Props = $props();
 
@@ -50,17 +46,9 @@
     clearQuery();
   }
 
-  /**
-   * Notifies the parent when the search input focus changes.
-   *
-   * @param focused - Current focus state of the search input.
-   */
-  function updateFocusState(focused: boolean) {
-    onFocusChange?.(focused);
-  }
 </script>
 
-<form class={`search ${compact ? 'search--compact' : ''}`} onsubmit={submit}>
+<form class="search" onsubmit={submit}>
   <label class="search__label visually-hidden" for="pokemon-search">Pokemon suchen</label>
   <div class="search__controls">
     <div class="search__input-wrap">
@@ -76,13 +64,6 @@
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
-        onfocus={() => {
-          updateFocusState(true);
-        }}
-        onblur={() => {
-          updateFocusState(false);
-        }}
-        aria-describedby={compact ? undefined : 'search-help'}
       />
       {#if query.length > 0}
         <button
@@ -107,9 +88,4 @@
       <span>Suchen</span>
     </button>
   </div>
-  {#if !compact}
-    <p id="search-help" class="search__help">
-      Mindestens 2 Buchstaben eines deutschen Namens oder 1+ Ziffern für ID-Suche.
-    </p>
-  {/if}
 </form>
